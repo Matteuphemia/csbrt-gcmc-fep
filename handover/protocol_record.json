@@ -1,0 +1,104 @@
+{
+  "source": "/home/moshe/intern_projects/project_1/scripts/loch_ludovic_common.py",
+  "source_sha256": "b2b4edaf077ac81f0a51d80514147d4f27550c6e4727649e04dd9bec91a1d867",
+  "physical": {
+    "TEMPERATURE_K": 300.0,
+    "FRICTION_PER_PS": 1.0,
+    "TIMESTEP_FS": 2.0,
+    "CUTOFF": "12 A",
+    "SWITCH_DISTANCE_NM": 1.0,
+    "EWALD_ERROR_TOLERANCE": 0.0005,
+    "SPHERE_RADIUS": "10 A",
+    "MU_EX": "-6.09 kcal/mol",
+    "STANDARD_VOLUME": "30.345 A^3",
+    "NUM_GHOSTS": 45,
+    "PRESSURE": "1 bar",
+    "BAROSTAT_FREQUENCY": 25,
+    "CA_RESTRAINT_K": 100.0,
+    "COM_RESET_FREQUENCY": 1,
+    "MINIMIZATION_TOLERANCE_KJ_MOL_NM": 10.0,
+    "DEFAULT_BATCH_SIZE": 50
+  },
+  "schedule": {
+    "UVT1": {
+      "initial_attempts": 10000,
+      "cycles": 100,
+      "attempts_per_cycle": 1000,
+      "md_steps_per_cycle": 5,
+      "loop_attempts": 100000,
+      "total_attempts": 110000,
+      "md_steps": 500,
+      "report_interval": 100,
+      "ns": 0.001,
+      "csv_records": 5,
+      "ghost_lines": 100
+    },
+    "NPT": {
+      "initial_attempts": 0,
+      "cycles": 1,
+      "attempts_per_cycle": 0,
+      "md_steps_per_cycle": 1000000,
+      "loop_attempts": 0,
+      "total_attempts": 0,
+      "md_steps": 1000000,
+      "report_interval": 2500,
+      "ns": 2.0,
+      "csv_records": 400,
+      "ghost_lines": 0
+    },
+    "UVT2": {
+      "initial_attempts": 0,
+      "cycles": 125,
+      "attempts_per_cycle": 800,
+      "md_steps_per_cycle": 2000,
+      "loop_attempts": 100000,
+      "total_attempts": 100000,
+      "md_steps": 250000,
+      "report_interval": 500,
+      "ns": 0.5,
+      "csv_records": 500,
+      "ghost_lines": 125
+    },
+    "PRODUCTION": {
+      "initial_attempts": 0,
+      "cycles": 2500,
+      "attempts_per_cycle": 200,
+      "md_steps_per_cycle": 2000,
+      "loop_attempts": 500000,
+      "total_attempts": 500000,
+      "md_steps": 5000000,
+      "report_interval": 500,
+      "ns": 10.0,
+      "csv_records": 10000,
+      "ghost_lines": 2500
+    }
+  },
+  "seeds": {
+    "base": 20260714,
+    "stage_offsets": {
+      "UVT1": 0,
+      "NPT velocities": 1,
+      "UVT2": 2,
+      "production": 3
+    },
+    "replica_stride": 1000
+  },
+  "environments": {
+    "cry-loch-babel": {
+      "loch": "2025.2.0",
+      "sire": "2025.4.0",
+      "BioSimSpace": "2025.4.0",
+      "openmm": "8.4.0",
+      "cuda-version": "12.8  (capped to the cluster driver \u2014 LOAD-BEARING)"
+    },
+    "automated-fep": {
+      "SOMD2/OpenBioSim": "2026.1",
+      "cuda-version": "12.8  (must be <= the NODE driver's CUDA)",
+      "cuda-nvvm": "required whenever the bound leg uses Loch GCMC"
+    },
+    "csbrt": {
+      "structure predictor": "OpenFold3 (Boltz-2/Chai-1 pin numpy<2 and break sire/somd2)",
+      "cuda": "pinned WHOLE to 12.8, not just cuda-version"
+    }
+  }
+}
