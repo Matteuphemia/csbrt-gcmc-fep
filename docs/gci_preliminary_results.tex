@@ -46,6 +46,29 @@ schedule --- 4\,000 GCMC attempts per window against a production 250\,000 --- s
 is noisy and required a monotonic fit before it could be integrated. The purpose here is to
 show the method and the code path work, not to report a free energy.
 
+\begin{caveat}{Added 2026-08-13 --- the site was never deliberately chosen}
+The sphere centre used here, $(48.331,\ 57.025,\ 56.001)$, is a \textbf{working placeholder}:
+a pocket water lifted from the equilibrated structure purely so the pipeline had a valid
+coordinate to run against. It was never replaced with a hydration site selected on scientific
+grounds, and \file{gci_map_centre.py} was never run to choose or validate one.
+
+The only check that did happen is \file{gci_window.py}'s built-in geometric guard, which
+confirms the sphere is not somewhere absurd --- it says nothing about whether this is the
+\emph{right} site.
+
+\textbf{What this does and does not invalidate.} Every number in this report is a correct
+titration \emph{of the region defined above}; the method demonstration stands. What cannot be
+claimed is that this region is the hydration site of interest for CRY1/KL101. Two features of
+the data reinforce the point: at $r = 4$ \AA{} with $N^{*} = 5$ this is a multi-water pocket
+rather than a single site, and only one crystallographic water from 6KX6 falls inside it ---
+with the two crystal copies disagreeing about which.
+
+\textbf{Status.} A 6-replica production campaign (216 windows, 250\,000 attempts each ---
+125$\times$ the sampling here) has since completed on \emph{this same centre}. It therefore
+supersedes this report on sampling quality and is directly comparable to it, but it inherits
+the same open question about site selection. It independently reproduces $N^{*} = 5$.
+\end{caveat}
+
 \section{What was run}
 
 \begin{center}\small
@@ -53,6 +76,7 @@ show the method and the code path work, not to report a free energy.
 \toprule
 System & CRY1/KL101, equilibrated through $\mu$VT1 $\to$ NPT $\to$ $\mu$VT2 \\
 Site & a pocket water, 2.75 \AA{} from the ligand, 3.09 \AA{} from protein \\
+      & \textcolor{red!55!black}{\textbf{--- a placeholder, not a chosen site (see caveat above)}} \\
 Sphere & $r = 4$ \AA{} at $(48.331,\ 57.025,\ 56.001)$; 27 ghost waters \\
 Ladder & 36 values of $B$ from $-30$ to $-4$, finely spaced through the transition \\
 Per window & 10 cycles $\times$ (400 GCMC attempts $+$ 200 MD steps) = 4\,000 attempts, 4 ps \\
@@ -82,8 +106,9 @@ Two features are worth pointing at:
 \item \textbf{The low-$B$ tail reaches zero and stays there.} This matters mechanically, not
 just aesthetically: it is what sets the lower limit of the integral.
 \item \textbf{$B_{\text{equil}} = -8.04$ falls in the plateau} (dashed line). The region is
-predicted to be hydrated at equilibrium with bulk water, which is what one expects of a site
-that was chosen because it contained a water.
+predicted to be hydrated at equilibrium with bulk water --- which is what one expects, and
+close to circular, given that the centre was picked \emph{because} it happened to contain a
+water. It confirms the machinery is self-consistent, not that the site is interesting.
 \end{itemize}
 
 The error bars are the spread of the last five checkpoints. They are large relative to the
@@ -131,6 +156,25 @@ buffer roughly equal to its own occupancy.
 \end{itemize}
 \end{good}
 
+\begin{caveat}{2026-08-13 --- withdraw the ghost-buffer check above}
+That check is \textbf{not valid evidence for a production run}, and the second bullet should
+not be relied on. The ghost pool drains \emph{cumulatively}: a water inserted into the sphere
+can diffuse out and remain physical, never returning to the buffer. This run is only 10 cycles,
+far too short for that drain to appear --- hence the reassuring 26 of 27.
+
+At the full 625-cycle schedule the same 27-ghost buffer on this site was measured to reach
+\textbf{3 of 27 remaining} at $B = -4$, and one window \textbf{exhausted it outright} and
+crashed. The tail \emph{was} being clipped. The production campaign was rerun with 100 ghosts,
+where peak demand is 34.
+
+\file{suggested_num_ghosts()} returns $3\times$ the \emph{instantaneous} bulk-equivalent
+occupancy, which does not account for cumulative drain, and under-provisions for
+solvent-exposed sites. Note it is not universally wrong: the CRY1/AN139 4 \AA{} sphere --- same
+radius, same 27 ghosts, same 625 cycles --- consumed \textbf{zero} ghosts, because that site is
+buried. \textbf{Ghost drain is therefore itself a diagnostic of solvent exposure}, and this
+site drains heavily.
+\end{caveat}
+
 For orientation only: this gives $-4.74$ kcal/mol per water, against $-4.70$ from the
 published CRY1/AN139 Sphere 2 result ($N^{*}=2$, $\Delta F = -9.397$). The agreement is
 closer than the data deserves --- different ligand, different site, under-converged sampling
@@ -174,6 +218,15 @@ and 1\,000$\times$ more MD per window, which is what the monotonicity and the hi
 plateau require. At that point the isotonic fit should become unnecessary --- and the right
 way to report the result is to run the analysis in its default mode and let it either accept
 the curve or refuse it.
+
+\smallskip
+\noindent\textbf{Update 2026-08-13.} That production run has been done: 6 replicas
+$\times$ 36 windows, \code{SMOKE=0}, all 216 completed. It reproduces $N^{*} = 5$ and provides
+the replicate spread this report could not. It runs on the same placeholder centre, so it
+answers the \emph{precision} question and leaves the \emph{site-selection} question open.
+Choosing a site properly means clustering KL101 production waters, picking a hydration site on
+scientific grounds, mapping it with \file{gci_map_centre.py}, and re-running --- a further
+campaign, not a re-analysis.
 
 \vspace{0.5em}
 \noindent\small\textit{Artifacts:} \file{gci_runs/} (36 windows, each with its own titration

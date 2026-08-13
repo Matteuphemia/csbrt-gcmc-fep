@@ -72,7 +72,7 @@ inactive ghosts frame by frame.
 \section{Result 1 --- the site sets}
 
 \begin{center}
-\includegraphics[width=0.98\linewidth]{figures/AN139method_occupancy.png}
+\includegraphics[width=0.98\linewidth]{AN139method_occupancy.png}
 \end{center}
 
 Left: every cluster, ranked by occupancy. The two curves lie on top of one another for the
@@ -103,7 +103,7 @@ the sphere that the ghost-exclusion step removes.
 \section{Result 2 --- how well they agree}
 
 \begin{center}
-\includegraphics[width=0.98\linewidth]{figures/AN139method_agreement.png}
+\includegraphics[width=0.98\linewidth]{AN139method_agreement.png}
 \end{center}
 
 Left: the 39 matched persistent sites, mean separation \textbf{0.36 \AA{}}. For scale, two
@@ -140,7 +140,7 @@ appear in a handful of frames.
 \section{Result 3 --- where the disagreement sits}
 
 \begin{center}
-\includegraphics[width=0.98\linewidth]{figures/AN139method_disagreement.png}
+\includegraphics[width=0.98\linewidth]{AN139method_disagreement.png}
 \end{center}
 
 Every old-only cluster (red) sits at the bottom of the occupancy axis, spread across the same
@@ -168,9 +168,43 @@ ghost handling}, not transient physical hydration. Recomputing those metrics on 
 \begin{caveat}{What this does \emph{not} show}
 Only one system and one trajectory. And this compares two \emph{analyses}, not two
 \emph{simulation engines} --- it says nothing about whether GRAND and Loch sample the same
-water, only that given identical frames they identify the same sites. The engine comparison
-needs matched-length production runs on the same system, which do not yet exist.
+water, only that given identical frames they identify the same sites.
 \end{caveat}
+
+\section*{Update (2026-08-06): the engine comparison has since been done}
+
+The matched-length production runs this document said did not yet exist have since been
+produced (\file{an139\_loch\_full/}, 2 replicas $\times$ 2500 frames). Comparing the two
+\emph{engines} --- same clustering on both sides, both site sets superposed into a common
+frame by Kabsch on 476 C$\alpha$ atoms --- gives:
+
+\begin{center}\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+AN139, occ $\ge$ 0.2 & matched & Tanimoto & mean $d$ \\
+\midrule
+GRAND vs Loch rep1 & 32 & \textbf{0.615} & 0.95 \AA{} \\
+GRAND vs Loch rep2 & 28 & 0.528 & 0.85 \AA{} \\
+Loch rep1 vs rep2 (replicate floor) & 28 & 0.571 & 0.58 \AA{} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+Cross-engine agreement equals or exceeds the replicate floor: the two engines produce
+\textbf{statistically indistinguishable} hydration-site networks.
+
+One caution learned the hard way, directly relevant to this document's method. An earlier
+version of that engine comparison reported Tanimoto 0.254 and concluded the engines disagreed
+badly. That was wrong. It compared GRAND's \emph{old} clustering against Loch's \emph{new}
+clustering (two variables at once), and --- dominant effect --- never reconciled the
+coordinate frames. \file{ev71\_postprocess.py} superposes each trajectory onto \emph{its own}
+frame 0, leaving a \textbf{3.5 \AA{} rigid-body offset} between independent runs, against a
+2.0 \AA{} match cutoff. Fixing the clustering alone moved 0.254 $\rightarrow$ 0.273; fixing
+the frame moved it to 0.615.
+
+\textbf{Site sets from independent runs must be brought into a common frame before
+comparison.} Artifacts: \file{an139\_fair\_engine\_comparison/}.
 
 \section{Reproducing this}
 

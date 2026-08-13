@@ -9,3 +9,11 @@ __pycache__/
 # OS / editor cruft
 .DS_Store
 .ipynb_checkpoints/
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.nav
+*.snm
+*.toc
