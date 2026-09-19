@@ -66,6 +66,40 @@ def worker_tag() -> str:
     return f"{socket.gethostname().split('.')[0]}_{os.getpid()}"
 
 
+def md_chunks(
+    num_steps: int,
+    completed_steps: int,
+    report_interval: int,
+    uq_interval: int | None = None,
+):
+    """Split an MD run into chunks that land exactly on report boundaries.
+
+    Yields the step counts to hand the integrator. With ``uq_interval`` set the
+    chunks are further subdivided so uncertainty can be evaluated between them,
+    but the points at which ``completed_steps`` becomes a multiple of
+    ``report_interval`` are unchanged. That invariant is what lets the GCMC
+    driver interleave UQ checks without altering the CSV step schedule its
+    checkpoints validate against.
+    """
+    if num_steps < 0 or completed_steps < 0:
+        raise ValueError("MD step counts cannot be negative")
+    if report_interval < 1:
+        raise ValueError("Report interval must be positive")
+    if uq_interval is not None and uq_interval < 1:
+        raise ValueError("UQ interval must be positive")
+
+    remaining = num_steps
+    done = completed_steps
+    while remaining:
+        until_report = report_interval - (done % report_interval)
+        chunk = min(remaining, until_report)
+        if uq_interval is not None:
+            chunk = min(chunk, uq_interval)
+        yield chunk
+        done += chunk
+        remaining -= chunk
+
+
 def ml_region_bonds(topology: Any, ml_atoms: Sequence[int]) -> list[tuple[int, int]]:
     """Bonds wholly inside the ML region, re-indexed to ML-local positions."""
     local = {int(atom): index for index, atom in enumerate(sorted(ml_atoms))}

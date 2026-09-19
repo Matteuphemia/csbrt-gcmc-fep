@@ -16,7 +16,7 @@ PACKAGE = Path(__file__).resolve().parents[1] / "src" / "csbrt"
 if str(PACKAGE) not in sys.path:
     sys.path.insert(0, str(PACKAGE))  # stage scripts import each other flat
 
-import pipeline_utils as pu  # noqa: E402
+import mace_pipeline as pu  # noqa: E402
 
 from csbrt import cli  # noqa: E402
 from csbrt.mace_surrogate import MACEConfig  # noqa: E402
@@ -266,6 +266,32 @@ def test_stage_scripts_share_one_flag_definition():
         ), f"{name} redefines the flags instead of using add_mace_arguments"
 
 
+def test_shared_modules_are_untouched_by_the_surrogate():
+    """pipeline_utils and ev71_loch_common must stay byte-identical.
+
+    Both are hashed into the implementation_signature of stage checkpoint
+    markers -- pipeline_utils into every one of them -- so a single added
+    function there invalidates every completed equilibration, production,
+    density and GCI checkpoint in a running campaign, whether or not anyone
+    enables the surrogate. The MACE plumbing lives in mace_pipeline.py for
+    exactly that reason, and this test is what keeps it there.
+    """
+    for name in ("pipeline_utils.py", "ev71_loch_common.py"):
+        source = (PACKAGE / name).read_text().lower()
+        assert "mace" not in source, (
+            f"{name} mentions MACE. Adding to it changes its hash and "
+            "invalidates every stage checkpoint that includes it; put the code "
+            "in mace_pipeline.py instead."
+        )
+
+
+def test_stages_hash_the_module_that_changes_their_physics():
+    """A stage that can run the surrogate must hash mace_pipeline.py."""
+    for name in ("ev71_production.py", "run_fep_leg.py"):
+        source = (PACKAGE / name).read_text()
+        assert '"mace_pipeline.py"' in source, name
+
+
 def test_somd2_config_is_never_polluted_with_mlff():
     """SOMD2 validates its own config keys and rejects unknown ones."""
     source = (PACKAGE / "run_fep_leg.py").read_text()
@@ -412,6 +438,27 @@ def test_preflight_flags_a_cuda_request_without_cuda_torch():
             c["check"] == "device agreement" and c["status"] == "fail"
             for c in report.checks
         )
+
+
+def test_benchmark_runs_and_reports_a_speedup(stub_potential, tmp_path):
+    """The throughput tool must produce a number, including a slowdown."""
+    from csbrt import mace_benchmark
+
+    target = tmp_path / "benchmark.json"
+    assert mace_benchmark.main([
+        "--model", stub_potential,
+        "--device", "cpu",
+        "--openmm-platform", "Reference",
+        "--steps", "20",
+        "--warmup", "2",
+        "--json", str(target),
+    ]) == 0
+    payload = json.loads(target.read_text())
+    assert payload["ml_region"]["ml_atom_count"] == 9
+    assert payload["classical"]["ns_per_day"] > 0
+    assert payload["mixed_lambda1"]["ns_per_day"] > 0
+    assert payload["speedup_vs_classical"] > 0
+    assert payload["uq"]["configured"] is False
 
 
 def test_preflight_writes_a_report(tmp_path):

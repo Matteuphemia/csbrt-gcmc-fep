@@ -15,7 +15,6 @@ import sire as sr
 from ev71_loch_common import (
     CsvStateWriter,
     DEFAULT_BATCH_SIZE,
-    attach_mace_surrogate,
     NUM_GHOSTS,
     PRODUCTION_ATTEMPTS,
     PRODUCTION_CYCLES,
@@ -31,23 +30,26 @@ from ev71_loch_common import (
     physical_protocol_signature,
     print_sampler,
     randomise_velocities,
-    run_with_csv_reports,
     save_physical_system,
     save_system,
     validate_gcmc_handoff,
     validate_physical_water_topology,
     validate_single_ligand,
 )
-from pipeline_utils import (
+from mace_pipeline import (
     add_mace_arguments,
+    attach_mace_surrogate,
+    mace_config_from_options,
+    mace_signature,
+    run_with_surrogate,
+)
+from pipeline_utils import (
     checkpoint_matches,
     complete_checkpoint,
     finite_csv,
     ghost_history,
     implementation_signature,
     invalidate_checkpoint,
-    mace_config_from_options,
-    mace_signature,
     sha256,
 )
 
@@ -128,6 +130,7 @@ def main() -> None:
             sources={
                 "ev71_production.py": Path(__file__),
                 "ev71_loch_common.py": Path(__file__).with_name("ev71_loch_common.py"),
+                "mace_pipeline.py": Path(__file__).with_name("mace_pipeline.py"),
                 "pipeline_utils.py": Path(__file__).with_name("pipeline_utils.py"),
             },
             distributions=("loch", "sire", "OpenMM", "mdtraj"),
@@ -233,14 +236,14 @@ def main() -> None:
     try:
         for cycle in range(opt.cycles):
             md_started = time.time()
-            completed = run_with_csv_reports(
+            completed = run_with_surrogate(
                 dynamics,
                 context,
                 opt.md_steps,
                 completed,
                 opt.report_interval,
                 csv,
-                surrogate=surrogate,
+                surrogate,
             )
             md_seconds = time.time() - md_started
 

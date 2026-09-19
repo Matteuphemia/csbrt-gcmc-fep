@@ -180,11 +180,7 @@ def check_potential(report: Report, config) -> bool:
 def check_mixed_system(report: Report, config, platform_name: str) -> Any:
     import openmm.unit as unit
 
-    from .mace_surrogate import (
-        INTERPOLATION_PARAMETER,
-        MACESurrogateError,
-        attach_mace_to_context,
-    )
+    from .mace_surrogate import INTERPOLATION_PARAMETER, attach_mace_to_context
     from .mace_surrogate.testsystems import build_reference_system
 
     fixture = build_reference_system()
@@ -195,7 +191,7 @@ def check_mixed_system(report: Report, config, platform_name: str) -> Any:
         handle = attach_mace_to_context(
             context, fixture.topology, config, fixture.ligand_atoms
         )
-    except (MACESurrogateError, Exception) as error:  # noqa: BLE001
+    except Exception as error:  # noqa: BLE001 - a diagnostic reports, never raises
         report.add("mixed system", "fail", f"{type(error).__name__}: {error}")
         return None
     elapsed = time.perf_counter() - started

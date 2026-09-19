@@ -31,6 +31,8 @@ import sys
 import time
 from typing import Any
 
+import numpy as np
+
 SECONDS_PER_DAY = 86400.0
 
 
@@ -167,6 +169,7 @@ def options(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     opt = options(argv)
     import openmm
+    import openmm.unit as unit
 
     from .mace_surrogate import (
         INTERPOLATION_PARAMETER,
@@ -219,6 +222,9 @@ def main(argv: list[str] | None = None) -> int:
         flush=True,
     )
 
+    # The classical measurement must finish before this line: attaching
+    # replaces the System's Forces in place, and classical_context shares that
+    # System.
     mixed_context = build_context(system, positions, platform_name, opt.timestep_fs)
     build_started = time.perf_counter()
     attach_mace_to_context(mixed_context, topology, config, ligand_atoms)
@@ -242,16 +248,16 @@ def main(argv: list[str] | None = None) -> int:
         flush=True,
     )
 
-    committee = measure_committee(
-        config,
-        region.atomic_numbers,
-        (
+    ml_coordinates_ang = (
+        np.asarray(
             mixed_context.getState(getPositions=True)
             .getPositions(asNumpy=True)
-            ._value[ligand_atoms]
-            * 10.0
-        ),
+            .value_in_unit(unit.nanometer),
+            dtype=np.float64,
+        )[ligand_atoms]
+        * 10.0
     )
+    committee = measure_committee(config, region.atomic_numbers, ml_coordinates_ang)
     uq_seconds = (
         committee["seconds_per_evaluation"] * (opt.steps / max(opt.uq_interval, 1))
     )

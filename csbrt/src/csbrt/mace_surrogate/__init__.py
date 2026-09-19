@@ -82,7 +82,13 @@ from .active_learner import (
     harvest,
     write_training_set,
 )
-from .runtime import MACERuntime, ml_coordinates, ml_region_bonds, worker_tag
+from .runtime import (
+    MACERuntime,
+    md_chunks,
+    ml_coordinates,
+    ml_region_bonds,
+    worker_tag,
+)
 
 __all__ = [
     # config / units
@@ -136,6 +142,7 @@ __all__ = [
     "write_training_set",
     # runtime
     "MACERuntime",
+    "md_chunks",
     "ml_coordinates",
     "ml_region_bonds",
     "worker_tag",

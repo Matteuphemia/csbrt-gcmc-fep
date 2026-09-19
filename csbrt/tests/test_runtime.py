@@ -206,3 +206,72 @@ def test_runtime_survives_an_md_loop(built_system, stub_config, tmp_path):
         unit.kilojoule_per_mole
     )
     assert np.isfinite(energy)
+
+
+# --------------------------------------------------------------------------- chunking
+
+
+def report_points(chunks, completed_steps, report_interval):
+    """Steps at which the CSV writer would fire, given a chunk sequence."""
+    points = []
+    done = completed_steps
+    for chunk in chunks:
+        done += chunk
+        if done % report_interval == 0:
+            points.append(done)
+    return points
+
+
+@pytest.mark.parametrize("completed", [0, 1, 250, 499, 2000])
+@pytest.mark.parametrize("num_steps", [1, 7, 500, 2000, 2001])
+@pytest.mark.parametrize("uq_interval", [1, 7, 100, 500, 5000])
+def test_uq_interleaving_never_moves_a_report_boundary(
+    completed, num_steps, uq_interval
+):
+    """The CSV step schedule must be identical with and without the surrogate.
+
+    Existing GCMC checkpoints validate the exact sequence of steps the CSV
+    reports at. Subdividing the run for uncertainty checks must not perturb it,
+    or every completed production run silently fails its own checkpoint.
+    """
+    from csbrt.mace_surrogate import md_chunks
+
+    report_interval = 500
+    classical = list(md_chunks(num_steps, completed, report_interval))
+    with_uq = list(md_chunks(num_steps, completed, report_interval, uq_interval))
+
+    assert sum(classical) == num_steps
+    assert sum(with_uq) == num_steps
+    assert report_points(classical, completed, report_interval) == report_points(
+        with_uq, completed, report_interval
+    )
+    assert all(chunk <= uq_interval for chunk in with_uq)
+    assert all(chunk > 0 for chunk in with_uq)
+
+
+def test_chunking_of_a_zero_length_run():
+    from csbrt.mace_surrogate import md_chunks
+
+    assert list(md_chunks(0, 0, 500, 100)) == []
+
+
+@pytest.mark.parametrize(
+    "args,message",
+    [
+        ((-1, 0, 500), "negative"),
+        ((10, -1, 500), "negative"),
+        ((10, 0, 0), "Report interval"),
+    ],
+)
+def test_chunking_rejects_nonsense(args, message):
+    from csbrt.mace_surrogate import md_chunks
+
+    with pytest.raises(ValueError, match=message):
+        list(md_chunks(*args))
+
+
+def test_chunking_rejects_a_zero_uq_interval():
+    from csbrt.mace_surrogate import md_chunks
+
+    with pytest.raises(ValueError, match="UQ interval"):
+        list(md_chunks(10, 0, 500, 0))

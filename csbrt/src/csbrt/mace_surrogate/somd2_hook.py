@@ -161,24 +161,36 @@ def sire_to_openmm_topology(system: Any) -> Any:
     from openmm import Vec3
     import openmm.unit as unit
 
+    from .mace_mixed_system import MACESurrogateError
+
     topology = app.Topology()
     chain = topology.addChain()
+    unresolved: list[str] = []
     for molecule in system.molecules():
         for residue in molecule.residues():
             openmm_residue = topology.addResidue(
                 str(residue.name().value()).strip(), chain
             )
             for atom in residue.atoms():
+                name = str(atom.name().value()).strip()
                 element = None
                 try:
-                    symbol = str(atom.element().symbol()).strip()
-                    if symbol:
-                        element = app.Element.getBySymbol(symbol)
+                    element = app.Element.getBySymbol(
+                        str(atom.element().symbol()).strip()
+                    )
                 except Exception:
-                    element = None
-                topology.addAtom(
-                    str(atom.name().value()).strip(), element, openmm_residue
-                )
+                    unresolved.append(name)
+                topology.addAtom(name, element, openmm_residue)
+    if unresolved:
+        # MACE needs atomic numbers. Say which Sire call failed rather than
+        # letting describe_ml_region report "atom 47 has no element" from three
+        # frames away.
+        raise MACESurrogateError(
+            f"Could not read an element symbol from Sire for {len(unresolved)} "
+            f"atom(s) ({', '.join(unresolved[:6])}). This Sire release's "
+            "atom.element().symbol() is not what the hook expects; the MACE "
+            "surrogate cannot map the ML region without atomic numbers."
+        )
     try:
         space = system.property("space")
         vectors = [

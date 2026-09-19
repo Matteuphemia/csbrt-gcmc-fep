@@ -177,81 +177,6 @@ def make_dynamics(
     return dynamics
 
 
-def attach_mace_surrogate(
-    dynamics,
-    topology,
-    mace_config,
-    *,
-    output_dir,
-    source: str = "",
-):
-    """Turn a Loch MD context into a hybrid MACE ML/MM context.
-
-    Must be called *before* ``sampler.bind_dynamics(dynamics)``. Attaching
-    replaces the Forces in the live System with the mixed ML/MM set (see
-    ``mace_surrogate.attach_mace_to_context``), and Loch resolves the
-    NonbondedForce it toggles ghost waters through when it binds. Binding
-    first would leave it holding a Force that is no longer in the System, and
-    the ghost bookkeeping would break silently.
-
-    Two properties are checked afterwards and the surrogate is torn down if
-    either fails, because a wrong GCMC acceptance is worse than no speedup:
-
-    * every particle Loch sees as a ghost (zero charge and epsilon) is still a
-      ghost, and no new ones appeared;
-    * exactly one NonbondedForce remains, which is what Loch expects.
-
-    Returns a ``MACERuntime`` or ``None``; ``None`` means the run continues on
-    classical physics.
-    """
-    if mace_config is None or not getattr(mace_config, "enabled", False):
-        return None
-
-    from csbrt.mace_surrogate import MACERuntime, noninteracting_particles
-
-    context = dynamics.context()
-    system = context.getSystem()
-    ghosts_before = noninteracting_particles(system)
-    nonbonded_before = sum(
-        1 for force in system.getForces() if isinstance(force, openmm.NonbondedForce)
-    )
-
-    runtime = MACERuntime.attach(
-        context, topology, mace_config, output_dir=output_dir, source=source
-    )
-    if runtime is None:
-        return None
-
-    ghosts_after = noninteracting_particles(system)
-    nonbonded_after = sum(
-        1 for force in system.getForces() if isinstance(force, openmm.NonbondedForce)
-    )
-    problems = []
-    if ghosts_after != ghosts_before:
-        problems.append(
-            f"ghost-water set changed across the mixed-system swap: "
-            f"{len(ghosts_before)} -> {len(ghosts_after)} non-interacting particles"
-        )
-    if nonbonded_after != nonbonded_before or nonbonded_after != 1:
-        problems.append(
-            f"NonbondedForce count is {nonbonded_after} (was {nonbonded_before}); "
-            "Loch toggles ghost waters through exactly one"
-        )
-    if problems:
-        raise RuntimeError(
-            "MACE surrogate would break Loch's GCMC bookkeeping: "
-            + "; ".join(problems)
-        )
-
-    print(
-        f"MACE surrogate attached to Loch dynamics: "
-        f"{len(runtime.region)} ML atoms, ghosts preserved "
-        f"({len(ghosts_after)} non-interacting particles)",
-        flush=True,
-    )
-    return runtime
-
-
 def make_sampler(
     system,
     *,
@@ -688,17 +613,8 @@ def run_with_csv_reports(
     completed_steps: int,
     report_interval: int,
     writer: CsvStateWriter,
-    surrogate=None,
 ) -> int:
-    """Run MD and write states at OpenMM StateDataReporter-style intervals.
-
-    With a ``surrogate`` (a ``mace_surrogate.MACERuntime``) the run is further
-    subdivided at its UQ interval, and uncertainty is evaluated before each
-    sub-chunk so the Hamiltonian in force is always the one the last
-    measurement justified. Chunks still land exactly on report boundaries, so
-    the CSV step schedule is identical either way and existing checkpoints
-    keep validating.
-    """
+    """Run MD and write states at OpenMM StateDataReporter-style intervals."""
     if num_steps < 0 or completed_steps < 0:
         raise ValueError("MD step counts cannot be negative")
     if report_interval < 1:
@@ -707,14 +623,9 @@ def run_with_csv_reports(
     while remaining:
         until_report = report_interval - (completed_steps % report_interval)
         chunk = min(remaining, until_report)
-        if surrogate is not None:
-            chunk = min(chunk, surrogate.config.uq_interval_steps)
-            surrogate.check(context)
         dynamics.run(chunk, save_frequency=0, auto_fix_minimise=False)
         completed_steps += chunk
         remaining -= chunk
-        if surrogate is not None:
-            surrogate.advance(chunk)
         if completed_steps % report_interval == 0:
             writer.write(completed_steps, context)
     return completed_steps

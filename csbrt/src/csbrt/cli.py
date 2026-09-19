@@ -26,7 +26,7 @@ import shlex
 import subprocess
 import sys
 
-from .pipeline_utils import mace_command_arguments
+from .mace_pipeline import mace_command_arguments
 
 HERE = Path(__file__).resolve().parent
 STAGES = ("preprocess", "equilibrate", "gcmc", "fep", "analysis")

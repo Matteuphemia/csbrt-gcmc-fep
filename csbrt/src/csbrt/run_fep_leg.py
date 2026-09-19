@@ -13,12 +13,14 @@ import subprocess
 
 import yaml
 
-from pipeline_utils import (
+from mace_pipeline import (
     add_mace_arguments,
-    complete_checkpoint,
-    implementation_signature,
     mace_config_from_options,
     mace_signature,
+)
+from pipeline_utils import (
+    complete_checkpoint,
+    implementation_signature,
     require_file,
     sha256,
     validate_recorded_outputs,
@@ -201,6 +203,7 @@ def main() -> None:
         "implementation": implementation_signature(
             sources={
                 "run_fep_leg.py": Path(__file__),
+                "mace_pipeline.py": Path(__file__).with_name("mace_pipeline.py"),
                 "pipeline_utils.py": Path(__file__).with_name("pipeline_utils.py"),
             },
             distributions=("somd2", "sire"),

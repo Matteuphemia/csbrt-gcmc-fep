@@ -12,11 +12,13 @@ import sys
 import time
 from typing import Any
 
-from pipeline_utils import (
+from mace_pipeline import (
     add_mace_arguments,
-    implementation_signature,
     mace_command_arguments,
     mace_options_dict,
+)
+from pipeline_utils import (
+    implementation_signature,
     read_json,
     require_file,
     resolve_scripts_dir,
