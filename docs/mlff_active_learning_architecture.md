@@ -272,8 +272,31 @@ production campaign.
 4. **Fallback rate.** A run whose `fallback_fraction` is more than a few
    percent is telling you the model does not cover this chemistry. Harvest,
    fine-tune, and re-check before using its free energies.
-5. **Licensing.** `mace-off23-*` is academic-use-only (ASL). See
+5. **Committee calibration.** Run `csbrt-mace-preflight --committee ...` with
+   the committee you intend to use. If sigma_F on a relaxed pose is already
+   over the threshold, the run will fall back on every frame: it pays for MACE
+   and never uses it. The preflight fails on this rather than warning.
+   `MACEUQMonitor.calibrate_thresholds` sets the threshold from a high
+   percentile of an in-distribution trajectory, which is the defensible way to
+   choose it per target.
+6. **Licensing.** `mace-off23-*` is academic-use-only (ASL). See
    `docs/mlff_throughput_expectations.md` section 6.
+
+### Equilibration runs classical; production runs the surrogate
+
+`run_ev71_pipeline` forwards the surrogate flags to the production stage only.
+Loch's UVT1 / NPT / UVT2 equilibration stays on the classical force field, for
+two reasons: the NPT block alone is a million steps and is where a ~10x
+slowdown would hurt most, and keeping it classical means every existing
+equilibration checkpoint stays valid.
+
+The cost is that production starts from a geometry relaxed under a different
+Hamiltonian, so the ligand's internal coordinates relax from the GAFF2 minimum
+to the MACE one at the start of the run. That is a picosecond-scale relaxation
+of 40-odd atoms inside a 10 ns production run, so discarding the first few
+GCMC cycles covers it. If you need the equilibrated ensemble itself to be a
+MACE ensemble — for a published number rather than a screen — equilibrate
+under the surrogate deliberately and accept the checkpoint invalidation.
 
 ---
 

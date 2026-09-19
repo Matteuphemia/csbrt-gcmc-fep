@@ -10,6 +10,7 @@ from pathlib import Path
 import subprocess
 import sys
 
+import numpy as np
 import pytest
 
 PACKAGE = Path(__file__).resolve().parents[1] / "src" / "csbrt"
@@ -470,3 +471,96 @@ def test_preflight_writes_a_report(tmp_path):
     assert payload["ok"] is True
     assert payload["config"]["enabled"] is True
     assert any(c["check"] == "geometry guard" for c in payload["checks"])
+
+
+# --------------------------------------------------------------------------- preflight UQ
+
+
+class FakeCommittee:
+    """A committee with dialled-in disagreement, for the preflight checks."""
+
+    def __init__(self, relaxed_sigma, distorted_sigma):
+        self.relaxed_sigma = relaxed_sigma
+        self.distorted_sigma = distorted_sigma
+        self.size = 2
+        self._reference = None
+
+    def check_compatibility(self):
+        return {"compatible": True, "r_max_values": [4.5], "element_tables": 1,
+                "models": []}
+
+    def warm_up(self, atomic_numbers, coords):
+        self._reference = np.asarray(coords, dtype=np.float64).copy()
+
+    def predict(self, coords, atomic_numbers, box_ang=None):
+        import numpy as _np
+
+        from csbrt.mace_surrogate import CommitteePrediction
+
+        coords = _np.asarray(coords, dtype=_np.float64)
+        moved = (
+            self._reference is not None
+            and not _np.allclose(coords, self._reference)
+        )
+        sigma = self.distorted_sigma if moved else self.relaxed_sigma
+        # Two members straddling zero by +/- sigma/sqrt(2) gives exactly sigma
+        # under the (M-1)-normalised definition.
+        offset = _np.zeros_like(coords)
+        offset[0, 0] = sigma / np.sqrt(2.0)
+        return CommitteePrediction(
+            energies_ev=_np.array([0.0, 0.0]),
+            forces_ev_per_ang=_np.stack([offset, -offset]),
+        )
+
+    def statistics(self):
+        return {"committee_size": 2, "evaluations": 2,
+                "mean_seconds_per_evaluation": 0.01}
+
+
+def run_committee_check(monkeypatch, relaxed, distorted):
+    from csbrt import mace_preflight
+    from csbrt.mace_surrogate import MACEConfig
+
+    monkeypatch.setattr(
+        "csbrt.mace_surrogate.MACECommittee",
+        lambda *a, **k: FakeCommittee(relaxed, distorted),
+    )
+    report = mace_preflight.Report()
+    config = MACEConfig(
+        enabled=True, device="cpu", precision="double",
+        committee_model_paths=("a.model", "b.model"),
+    )
+    mace_preflight.check_committee(report, config)
+    return {c["check"]: c for c in report.checks}
+
+
+def test_preflight_passes_a_well_calibrated_committee(monkeypatch):
+    checks = run_committee_check(monkeypatch, relaxed=0.01, distorted=0.40)
+    assert checks["committee sensitivity"]["status"] == "ok"
+
+
+def test_preflight_fails_a_committee_that_would_always_fall_back(monkeypatch):
+    """sigma_F over threshold on a relaxed pose means the surrogate never runs."""
+    checks = run_committee_check(monkeypatch, relaxed=0.25, distorted=0.40)
+    sensitivity = checks["committee sensitivity"]
+    assert sensitivity["status"] == "fail"
+    assert "every frame" in sensitivity["detail"]
+    assert "calibrat" in sensitivity["detail"]
+
+
+def test_preflight_warns_when_disagreement_carries_no_signal(monkeypatch):
+    checks = run_committee_check(monkeypatch, relaxed=0.01, distorted=0.005)
+    assert checks["committee sensitivity"]["status"] == "warn"
+    assert "does not grow" in checks["committee sensitivity"]["detail"]
+
+
+def test_preflight_reports_a_single_model_as_a_warning():
+    from csbrt import mace_preflight
+    from csbrt.mace_surrogate import MACEConfig
+
+    report = mace_preflight.Report()
+    mace_preflight.check_committee(report, MACEConfig(enabled=True, device="cpu"))
+    entry = report.checks[0]
+    assert entry["check"] == "committee"
+    assert entry["status"] == "warn"
+    assert "geometry guard" in entry["detail"]
