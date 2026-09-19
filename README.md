@@ -32,13 +32,18 @@ and an automatic fallback to the classical Hamiltonian
 ([`csbrt/src/csbrt/mace_surrogate/`](csbrt/src/csbrt/mace_surrogate/)). It is off
 by default.
 
-- [`docs/mlff_active_learning_architecture.md`](docs/mlff_active_learning_architecture.md)
-  — what was built, how it attaches to Loch and SOMD2, and the validation
-  checklist before trusting a ΔΔG from it.
+- [`docs/mlff_delivery_report.md`](docs/mlff_delivery_report.md) — **start
+  here.** What was built, what was verified and with what numbers, what could
+  not be verified here, the small-scale test to run, and the open items.
+- [`docs/mlff_decisions.md`](docs/mlff_decisions.md) — every judgement call:
+  what the plan said, what was done instead, why, and how to reverse it.
 - [`docs/mlff_throughput_expectations.md`](docs/mlff_throughput_expectations.md)
-  — **read first.** Hybrid ML/MM is about an order of magnitude *slower* than
-  the classical pipeline, not faster; what it buys instead, and where a 50%
-  time reduction could actually come from.
+  — hybrid ML/MM is about an order of magnitude *slower* than the classical
+  pipeline, not faster; what it buys instead, and where a 50% time reduction
+  could actually come from.
+- [`docs/mlff_active_learning_architecture.md`](docs/mlff_active_learning_architecture.md)
+  — component-by-component specification, and the validation checklist before
+  trusting a ΔΔG from it.
 
 ## Two structure-prediction tracks
 

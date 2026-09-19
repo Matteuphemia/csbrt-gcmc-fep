@@ -4,6 +4,11 @@
 **Foundational References:** Duignan (2024, `docs/duignan2024_potential_nnps.pdf`) & Wang et al. (2024, `docs/wang2024_design_space_mm_mlff.pdf`)  
 **Implementation Package:** `csbrt.mace_surrogate`
 
+This document specifies the components. For review, start with
+[`mlff_delivery_report.md`](mlff_delivery_report.md) (what was built, what was
+verified, what to run next) and [`mlff_decisions.md`](mlff_decisions.md) (every
+judgement call and how to reverse it).
+
 ---
 
 ## 1. System Design & Algorithmic Loop

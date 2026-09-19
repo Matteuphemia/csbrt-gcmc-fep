@@ -1,6 +1,9 @@
 # What the MACE surrogate costs, and what it buys
 
 **Read this before planning a campaign around the MACE surrogate.**
+See also [`mlff_delivery_report.md`](mlff_delivery_report.md) for what was
+built and verified, and [`mlff_decisions.md`](mlff_decisions.md) D1 for this
+argument in its shortest form.
 
 The implementation plan sets a target of roughly **50% less simulation time**
 from replacing classical force-field evaluations with a MACE surrogate. That

@@ -181,7 +181,9 @@ weakest and where alchemical FEP is most sensitive. Note also that
 Before trusting a ΔΔG from a surrogate run: preflight on the real node, check
 NVE drift against the classical baseline, and run at least three benchmark
 edges both ways. `docs/mlff_active_learning_architecture.md` section 5 is the
-checklist.
+checklist; `docs/mlff_delivery_report.md` section 5 is the step-by-step
+small-scale test, and `docs/mlff_decisions.md` records every judgement call
+made while building this and how to reverse it.
 
 Between generations, close the active-learning loop on the frames the fallback
 harvested:
