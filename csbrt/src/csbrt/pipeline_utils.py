@@ -295,22 +295,14 @@ def ghost_history(path: Path) -> dict[str, Any]:
 # whose flags drift from its neighbours silently runs different physics. They
 # are declared once here and parsed once here.
 
-MACE_ARGUMENT_NAMES = (
-    "enable_mace_surrogate",
-    "mace_model",
-    "mace_model_path",
-    "mace_committee",
-    "mace_uq_threshold",
-    "mace_uq_interval",
-    "mace_fallback_steps",
-    "mace_device",
-    "mace_ml_waters",
-    "mace_strict",
-)
-
-
 def add_mace_arguments(parser) -> None:
-    """Register the MACE surrogate flags on a stage script's parser."""
+    """Register the MACE surrogate flags on a stage script's parser.
+
+    Every option defaults to ``None`` rather than to a value. The defaults live
+    in ``MACEConfig`` and nowhere else: a default repeated in argparse is a
+    default that drifts, and the whole point of declaring these once is that a
+    52-edge network cannot end up running two versions of the physics.
+    """
     group = parser.add_argument_group("MACE ML/MM surrogate")
     group.add_argument(
         "--enable-mace-surrogate", "--mace-surrogate",
@@ -319,7 +311,13 @@ def add_mace_arguments(parser) -> None:
              "uncertainty-triggered fallback to classical physics",
     )
     group.add_argument(
-        "--mace-model", default="mace-off23-small",
+        "--mace-config", default=None, metavar="JSON_OR_PATH",
+        help="The whole mlff settings block as JSON, or a path to a JSON file. "
+             "This is how the csbrt driver forwards a config's mlff: block "
+             "intact; the individual flags below override whatever it carries.",
+    )
+    group.add_argument(
+        "--mace-model", default=None,
         help="openmm-ml foundation model name (default: mace-off23-small)",
     )
     group.add_argument(
@@ -327,53 +325,98 @@ def add_mace_arguments(parser) -> None:
         help="Locally trained/fine-tuned .model file; overrides --mace-model",
     )
     group.add_argument(
-        "--mace-committee", action="append", default=[], metavar="MODEL",
+        "--mace-committee", action="append", default=None, metavar="MODEL",
         help="Committee member for uncertainty quantification; repeat for "
              "each member. Two or more are needed for a force variance, and "
              "they must be fine-tunes of the same foundation model.",
     )
     group.add_argument(
-        "--mace-uq-threshold", type=float, default=0.05,
+        "--mace-uq-threshold", type=float, default=None,
         help="Committee force-variance trigger in eV/A (default: 0.05)",
     )
     group.add_argument(
-        "--mace-uq-interval", type=int, default=100,
+        "--mace-uq-interval", type=int, default=None,
         help="MD steps between uncertainty evaluations (default: 100)",
     )
     group.add_argument(
-        "--mace-fallback-steps", type=int, default=50,
+        "--mace-fallback-steps", type=int, default=None,
         help="Classical steps to run after a trigger before retrying the "
              "surrogate (default: 50)",
     )
-    group.add_argument("--mace-device", default="cuda",
+    group.add_argument("--mace-device", default=None,
                        help="Device for MACE inference (default: cuda)")
     group.add_argument(
-        "--mace-ml-waters", action="store_true",
+        "--mace-ml-waters", action="store_true", default=None,
         help="Put binding-site waters in the ML region as well as the ligand. "
              "Off by default: the ML atom list is fixed for the life of the "
              "Context, so Loch cannot exchange an ML water.",
     )
     group.add_argument(
-        "--mace-strict", action="store_true",
+        "--mace-strict", action="store_true", default=None,
         help="Fail the stage if the surrogate cannot be built, instead of "
              "continuing on classical physics",
     )
 
 
+#: CLI attribute -> key in the mlff settings block.
+MACE_FLAG_KEYS = {
+    "mace_model": "model_name",
+    "mace_model_path": "model_path",
+    "mace_committee": "committee_model_paths",
+    "mace_uq_threshold": "uq_force_threshold_ev_per_ang",
+    "mace_uq_interval": "uq_interval_steps",
+    "mace_fallback_steps": "fallback_steps",
+    "mace_device": "device",
+    "mace_ml_waters": "include_binding_site_waters",
+    "mace_strict": "strict",
+}
+
+
+def _load_mace_config_blob(value: str | None) -> dict[str, Any]:
+    """Parse ``--mace-config``: inline JSON, or a path to a JSON file.
+
+    A serialised settings block is longer than any filesystem's name limit, so
+    ``Path(value).is_file()`` on one raises rather than returning False. Decide
+    on the leading character first, and treat any remaining filesystem error as
+    "not a path" rather than letting it reach the user as an ENAMETOOLONG.
+    """
+    if not value:
+        return {}
+    text = value
+    if not value.lstrip().startswith(("{", "[")):
+        try:
+            candidate = Path(value)
+            if candidate.is_file():
+                text = candidate.read_text()
+        except OSError:
+            pass
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as error:
+        raise ValueError(
+            f"--mace-config is neither a readable file nor valid JSON: {error}"
+        ) from error
+    if not isinstance(payload, dict):
+        raise ValueError("--mace-config must be a JSON object")
+    return payload
+
+
 def mace_options_dict(options) -> dict[str, Any]:
-    """Collect the MACE flags off a parsed namespace as an mlff config mapping."""
-    return {
-        "enabled": bool(getattr(options, "enable_mace_surrogate", False)),
-        "model_name": getattr(options, "mace_model", "mace-off23-small"),
-        "model_path": getattr(options, "mace_model_path", None),
-        "committee_model_paths": list(getattr(options, "mace_committee", []) or []),
-        "uq_force_threshold_ev_per_ang": getattr(options, "mace_uq_threshold", 0.05),
-        "uq_interval_steps": getattr(options, "mace_uq_interval", 100),
-        "fallback_steps": getattr(options, "mace_fallback_steps", 50),
-        "device": getattr(options, "mace_device", "cuda"),
-        "include_binding_site_waters": bool(getattr(options, "mace_ml_waters", False)),
-        "strict": bool(getattr(options, "mace_strict", False)),
-    }
+    """Collect the MACE flags off a parsed namespace as an mlff settings block.
+
+    The ``--mace-config`` blob is the base and the individual flags override
+    it, so a config file's ``mlff:`` block survives being forwarded through a
+    stage script even for settings that have no dedicated flag.
+    """
+    payload = _load_mace_config_blob(getattr(options, "mace_config", None))
+    payload["enabled"] = bool(
+        getattr(options, "enable_mace_surrogate", False) or payload.get("enabled")
+    )
+    for attribute, key in MACE_FLAG_KEYS.items():
+        value = getattr(options, attribute, None)
+        if value is not None:
+            payload[key] = value
+    return payload
 
 
 def mace_config_from_options(options, *, ligand_resname: str | None = None):
@@ -387,29 +430,19 @@ def mace_config_from_options(options, *, ligand_resname: str | None = None):
 
 
 def mace_command_arguments(mlff: dict[str, Any] | None) -> list[str]:
-    """Render an ``mlff:`` config block back into stage-script flags."""
+    """Render an ``mlff:`` settings block into stage-script flags.
+
+    The whole block goes through as one JSON argument rather than as a flag per
+    key. Settings such as ``precision``, ``max_ml_atoms`` or
+    ``fallback_abort_fraction`` have no dedicated flag, and rendering only the
+    ones that do would silently drop them somewhere between the driver and the
+    stage that runs the physics.
+    """
     if not mlff or not mlff.get("enabled"):
         return []
-    arguments: list[str] = ["--enable-mace-surrogate"]
-    simple = {
-        "model_name": "--mace-model",
-        "model_path": "--mace-model-path",
-        "uq_force_threshold_ev_per_ang": "--mace-uq-threshold",
-        "uq_interval_steps": "--mace-uq-interval",
-        "fallback_steps": "--mace-fallback-steps",
-        "device": "--mace-device",
-    }
-    for key, flag in simple.items():
-        value = mlff.get(key)
-        if value is not None:
-            arguments.extend([flag, str(value)])
-    for member in mlff.get("committee_model_paths") or []:
-        arguments.extend(["--mace-committee", str(member)])
-    if mlff.get("include_binding_site_waters"):
-        arguments.append("--mace-ml-waters")
-    if mlff.get("strict"):
-        arguments.append("--mace-strict")
-    return arguments
+    payload = dict(mlff)
+    payload["enabled"] = True
+    return ["--enable-mace-surrogate", "--mace-config", json.dumps(payload, sort_keys=True)]
 
 
 def mace_signature(config: "dict[str, Any] | Any | None") -> dict[str, Any] | None:

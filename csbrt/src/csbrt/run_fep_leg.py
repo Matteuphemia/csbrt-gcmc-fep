@@ -53,8 +53,9 @@ def options() -> argparse.Namespace:
         "runtime / energy_frequency. Raise energy_frequency for REX runs.",
     )
     parser.add_argument(
-        "--mace-ligand-resname", default="LIG",
-        help="Residue name of the perturbable molecule for the ML region",
+        "--mace-ligand-resname", default=None,
+        help="Residue name of the perturbable molecule for the ML region "
+             "(default: whatever the mlff settings say, else LIG)",
     )
     add_mace_arguments(parser)
     return parser.parse_args()
@@ -303,7 +304,7 @@ def main() -> None:
                 f"attaching it; see {output}/runner.stdout.log. The leg ran "
                 "classical physics."
             )
-            if opt.mace_strict:
+            if mace_config.strict:
                 raise RuntimeError(message)
             print(f"WARNING: {message}", flush=True)
         else:

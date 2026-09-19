@@ -265,7 +265,7 @@ def _base_parser(description: str) -> argparse.ArgumentParser:
                        help="Committee force-variance trigger in eV/A")
     group.add_argument("--mace-device", type=str, default=None,
                        help="Device for MACE inference (cuda/cpu)")
-    group.add_argument("--mace-strict", action="store_true",
+    group.add_argument("--mace-strict", action="store_true", default=None,
                        help="Fail rather than falling back to classical physics "
                             "when the surrogate cannot be built")
     return p
@@ -290,7 +290,7 @@ def _merge_cli_mace(cfg: dict, opt: argparse.Namespace) -> None:
     mlff = cfg.setdefault("mlff", {})
     if getattr(opt, "enable_mace_surrogate", False):
         mlff["enabled"] = True
-    if getattr(opt, "mace_strict", False):
+    if getattr(opt, "mace_strict", None):
         mlff["strict"] = True
     for attribute, key in _MACE_OVERRIDES.items():
         value = getattr(opt, attribute, None)

@@ -228,6 +228,7 @@ def main() -> None:
     )
     started = time.time()
     completed = 0
+    mace_stats = None
 
     try:
         for cycle in range(opt.cycles):
@@ -258,10 +259,18 @@ def main() -> None:
     finally:
         csv.close()
         dcd_handle.close()
+        if surrogate is not None:
+            # In the finally block so a crashed run still keeps its harvested
+            # frames: a crash is exactly the run whose out-of-distribution
+            # frames are worth fine-tuning on. Guarded so a failure here cannot
+            # replace the exception that caused the crash.
+            try:
+                mace_stats = surrogate.finish()
+            except Exception as error:  # noqa: BLE001
+                print(f"[MACE surrogate] failed to write statistics: {error}",
+                      flush=True)
 
-    mace_stats = None
-    if surrogate is not None:
-        mace_stats = surrogate.finish()
+    if mace_stats is not None:
         fallback = mace_stats["fallback"]
         print(
             f"[MACE surrogate] {fallback['surrogate_steps']} of "

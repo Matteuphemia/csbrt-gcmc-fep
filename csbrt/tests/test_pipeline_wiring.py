@@ -63,6 +63,54 @@ def test_legacy_surrogate_alias_still_parses():
     assert parse("--mace-surrogate").enable_mace_surrogate is True
 
 
+def test_whole_settings_block_survives_forwarding():
+    """Settings with no dedicated flag must not be dropped in transit.
+
+    precision, max_ml_atoms and fallback_abort_fraction are set in the config's
+    mlff: block and have no CLI flag. Rendering only the flagged keys would
+    silently discard them between the driver and the stage that runs the
+    physics.
+    """
+    block = {
+        "enabled": True,
+        "model_name": "mace-off23-medium",
+        "precision": "double",
+        "max_ml_atoms": 80,
+        "fallback_abort_fraction": 0.25,
+        "uq_energy_threshold_kcal_per_mol": 2.0,
+        "geometry_min_distance_ang": 0.6,
+        "ood_buffer_dir": "buffers/gen2",
+    }
+    forwarded = pu.mace_command_arguments(block)
+    restored = pu.mace_options_dict(parse(*forwarded))
+    assert restored == block
+
+    config = MACEConfig.from_dict(restored)
+    assert config.precision == "double"
+    assert config.max_ml_atoms == 80
+    assert config.fallback_abort_fraction == 0.25
+    assert config.geometry_min_distance_ang == 0.6
+
+
+def test_explicit_flags_override_the_forwarded_block():
+    forwarded = pu.mace_command_arguments(
+        {"enabled": True, "model_name": "mace-off23-small", "precision": "double"}
+    )
+    restored = pu.mace_options_dict(
+        parse(*forwarded, "--mace-model", "mace-off23-large")
+    )
+    assert restored["model_name"] == "mace-off23-large"
+    assert restored["precision"] == "double"
+
+
+def test_mace_config_accepts_a_file(tmp_path):
+    path = tmp_path / "mlff.json"
+    path.write_text(json.dumps({"enabled": True, "max_ml_atoms": 42}))
+    restored = pu.mace_options_dict(parse("--mace-config", str(path)))
+    assert restored["max_ml_atoms"] == 42
+    assert restored["enabled"] is True
+
+
 def test_config_is_built_with_the_stage_ligand_name():
     options = parse("--enable-mace-surrogate", "--mace-uq-interval", "37")
     config = pu.mace_config_from_options(options, ligand_resname="MOL")
@@ -133,6 +181,78 @@ def test_example_config_parses_into_a_valid_config():
     config = MACEConfig.from_dict(payload["mlff"])
     assert config.enabled is False
     assert config.include_binding_site_waters is False
+
+
+def test_settings_survive_the_whole_driver_to_stage_chain(monkeypatch):
+    """csbrt -> run_ev71_pipeline -> ev71_production must not lose a setting.
+
+    Three argparse layers separate the config file from the code that builds
+    the mixed system. This walks all three with the real parsers and asserts
+    the block that comes out the far end is the block that went in.
+    """
+    import run_ev71_pipeline
+
+    block = {
+        "enabled": True,
+        "model_name": "mace-off23-medium",
+        "precision": "double",
+        "max_ml_atoms": 64,
+        "fallback_abort_fraction": 0.3,
+        "committee_model_paths": ["/models/a.model", "/models/b.model"],
+        "ood_buffer_dir": "/scratch/al",
+    }
+
+    # Layer 1: the csbrt driver renders the config's mlff: block.
+    driver_arguments = pu.mace_command_arguments(block)
+
+    # Layer 2: run_ev71_pipeline parses them and forwards to the stage.
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_ev71_pipeline.py",
+            "--receptor", "r.pdb",
+            "--ligand-library", "l.sdf",
+            "--ligand-id", "lig",
+            "--run-dir", "run",
+            *driver_arguments,
+        ],
+    )
+    pipeline_options = run_ev71_pipeline.options()
+    stage_arguments = pu.mace_command_arguments(
+        pu.mace_options_dict(pipeline_options)
+    )
+
+    # Layer 3: the stage script parses what it was handed.
+    stage_options = parse(*stage_arguments)
+    config = MACEConfig.from_dict(pu.mace_options_dict(stage_options))
+
+    assert config.enabled is True
+    assert config.model_name == "mace-off23-medium"
+    assert config.precision == "double"
+    assert config.max_ml_atoms == 64
+    assert config.fallback_abort_fraction == 0.3
+    assert config.committee_model_paths == (
+        "/models/a.model", "/models/b.model",
+    )
+    assert config.ood_buffer_dir == "/scratch/al"
+
+
+def test_a_classical_run_forwards_nothing(monkeypatch):
+    import run_ev71_pipeline
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_ev71_pipeline.py",
+            "--receptor", "r.pdb", "--ligand-library", "l.sdf",
+            "--ligand-id", "lig", "--run-dir", "run",
+        ],
+    )
+    options = run_ev71_pipeline.options()
+    assert pu.mace_command_arguments(pu.mace_options_dict(options)) == []
+    assert pu.mace_signature(pu.mace_options_dict(options)) is None
 
 
 def test_stage_scripts_share_one_flag_definition():

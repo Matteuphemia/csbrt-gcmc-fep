@@ -93,18 +93,28 @@ def test_from_dict_round_trips():
     assert restored.committee_size == 2
 
 
-def test_resolve_paths_is_relative_to_the_stage_directory(tmp_path):
+def test_buffer_resolves_against_the_stage_directory(tmp_path):
+    config = MACEConfig(enabled=True, ood_buffer_dir="al_buffer")
+    assert config.resolve_paths(tmp_path).ood_buffer_dir == str(
+        tmp_path / "al_buffer"
+    )
+    absolute = MACEConfig(enabled=True, ood_buffer_dir="/scratch/buffers")
+    assert absolute.resolve_paths(tmp_path).ood_buffer_dir == "/scratch/buffers"
+
+
+def test_models_resolve_against_the_working_directory(tmp_path, monkeypatch):
+    """A model path means where the person typed it, not inside the run tree."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "models").mkdir()
     config = MACEConfig(
         enabled=True,
-        ood_buffer_dir="al_buffer",
         model_path="models/gen2.model",
         committee_model_paths=["models/a.model", "/abs/b.model"],
     )
-    resolved = config.resolve_paths(tmp_path)
-    assert resolved.ood_buffer_dir == str(tmp_path / "al_buffer")
-    assert resolved.model_path == str(tmp_path / "models/gen2.model")
+    resolved = config.resolve_paths(tmp_path / "run" / "endpoint" / "deep")
+    assert resolved.model_path == str(tmp_path / "models" / "gen2.model")
     assert resolved.committee_model_paths == (
-        str(tmp_path / "models/a.model"),
+        str(tmp_path / "models" / "a.model"),
         "/abs/b.model",
     )
 

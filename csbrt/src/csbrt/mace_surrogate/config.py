@@ -265,15 +265,22 @@ class MACEConfig:
         return self.uq_energy_threshold_kcal_per_mol * KCAL_TO_KJ
 
     def resolve_paths(self, root: Path) -> "MACEConfig":
-        """Return a copy with relative model/buffer paths resolved under ``root``."""
+        """Return a copy with relative paths made absolute.
+
+        The OOD buffer belongs to the run, so a relative ``ood_buffer_dir``
+        resolves against the stage's output directory. Model checkpoints do
+        not: a config saying ``models/gen2_seed0.model`` means the path the
+        person typed it at, not a directory several levels down inside a run
+        tree that the model was never copied into. Those resolve against the
+        working directory, which every stage subprocess inherits.
+        """
         data = self.to_dict()
         if self.ood_buffer_dir and not Path(self.ood_buffer_dir).is_absolute():
-            data["ood_buffer_dir"] = str(root / self.ood_buffer_dir)
-        if self.model_path and not Path(self.model_path).is_absolute():
-            data["model_path"] = str(root / self.model_path)
+            data["ood_buffer_dir"] = str(Path(root) / self.ood_buffer_dir)
+        if self.model_path:
+            data["model_path"] = str(Path(self.model_path).resolve())
         data["committee_model_paths"] = tuple(
-            str(p) if Path(p).is_absolute() else str(root / p)
-            for p in self.committee_model_paths
+            str(Path(member).resolve()) for member in self.committee_model_paths
         )
         return MACEConfig.from_dict(data)
 
