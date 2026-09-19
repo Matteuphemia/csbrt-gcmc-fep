@@ -152,3 +152,4 @@ The CSBRT hybrid ML/MM platform addresses the fundamental commercial and scienti
 2. **Enterprise Reliability:** Solves the primary operational barrier of AI potentials through our zero-overhead $0.47\ \mu\text{s}$ safety net.
 3. **Defensible Competitive Moat:** Automatically converts every screening campaign into proprietary, fine-tuned training data that compounds over time.
 4. **Immediate ROI:** Delivers a proven $52.4\%$ reduction in cloud wall-clock compute time, saving over $\$190,000$ per 50 drug targets annually.
+

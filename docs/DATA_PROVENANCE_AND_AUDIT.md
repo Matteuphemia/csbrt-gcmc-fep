@@ -108,3 +108,4 @@ All local benchmarks recorded in `preflight_gpu_output.json` and `mace_benchmark
 ## 5. Diligence Sign-Off & Attestation
 
 The metrics, benchmarks, and architectural designs documented in this repository have been inspected and confirmed against actual code execution logs. No synthetic numbers, speculative performance multipliers, or hypothetical benchmarks have been included without explicit qualification and empirical mathematical grounding.
+

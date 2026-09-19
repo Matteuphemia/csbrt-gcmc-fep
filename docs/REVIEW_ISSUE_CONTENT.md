@@ -103,3 +103,4 @@ Based on automated tests and local GPU execution on an NVIDIA RTX 3070:
 ---
 
 Please let us know if any further data cuts or benchmark scenarios are needed for the investment committee review!
+

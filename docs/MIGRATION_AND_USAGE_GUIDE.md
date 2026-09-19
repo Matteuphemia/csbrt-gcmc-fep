@@ -240,3 +240,4 @@ To migrate an existing campaign from `BenCree/csbrt-gcmc-fep` to `euph1-antig`:
 - [x] **Enable Adaptive Lambda:** Switch from 11 fixed windows to 7 adaptive windows (`--adaptive-lambda`) to unlock the $52.4\%$ speedup.
 - [x] **Set OOD Buffer Path:** Specify `--harvest-ood-frames` to automatically capture edge cases for proprietary data moat creation.
 - [x] **Inspect Results in Demo Dashboard:** View results and convergence in real time by opening `demo/index.html`.
+
