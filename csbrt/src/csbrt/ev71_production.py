@@ -235,11 +235,13 @@ def main() -> None:
     # MACE surrogate & active learning runtime controllers
     ood_buffer = None
     fallback_ctrl = None
-    ml_atoms = None
+    ensemble_evaluator = None
+    atomic_numbers = None
     if opt.enable_mace_surrogate:
         import numpy as np
         from csbrt.mace_surrogate import (
             MACEConfig,
+            MACEEnsembleEvaluator,
             MACEUQMonitor,
             PhysicsFallbackController,
             OODBuffer,
@@ -253,26 +255,48 @@ def main() -> None:
             device=opt.mace_device,
             ligand_resname=opt.ligand_resname,
         )
+        try:
+            mace_cfg.validate()
+        except Exception as err:
+            print(f"[MACE surrogate] invalid configuration, disabling: {err}", flush=True)
+            mace_cfg = None
+
+        atomic_numbers = [int(atom.element.atomic_number) for atom in topology.atoms()]
         ood_buffer = OODBuffer(ood_file)
-        uq_mon = MACEUQMonitor(config=mace_cfg)
-        ml_atoms = partition_ml_atoms(
-            topology,
-            ligand_resname=opt.ligand_resname,
-            include_waters=True,
-        )
-        fallback_ctrl = PhysicsFallbackController(
-            config=mace_cfg,
-            uq_monitor=uq_mon,
-            on_ood_frame=lambda f_data: ood_buffer.add_from_raw(
-                step=f_data.get("step", 0),
-                positions=f_data.get("positions", np.zeros((len(ml_atoms), 3))),
-                atomic_numbers=[6] * max(len(ml_atoms), 1),
-                uncertainty_force=f_data.get("uq_result", {}).get("sigma_f_max_ev_per_ang", 0.0),
-                uncertainty_energy=f_data.get("uq_result", {}).get("sigma_e_kcal_per_mol", 0.0),
-                reason=f_data.get("reason", "OOD"),
-                ml_atoms=ml_atoms,
-            ),
-        )
+        uq_mon = MACEUQMonitor(config=mace_cfg) if mace_cfg is not None else None
+
+        if mace_cfg is not None:
+            try:
+                ensemble_evaluator = MACEEnsembleEvaluator(mace_cfg)
+                ensemble_evaluator.ensure_loaded()
+            except Exception as err:
+                print(f"[MACE surrogate] UQ disabled at runtime: {err}", flush=True)
+
+        if ensemble_evaluator is not None:
+            def _on_ood(f_data: dict) -> None:
+                positions_ang = np.asarray(
+                    f_data.get("positions", np.zeros((len(atomic_numbers), 3))),
+                    dtype=np.float32,
+                )
+                ood_buffer.add_from_raw(
+                    step=f_data.get("step", 0),
+                    positions=positions_ang,
+                    atomic_numbers=atomic_numbers,
+                    uncertainty_force=f_data.get("uq_result", {}).get(
+                        "sigma_f_max_ev_per_ang", 0.0
+                    ),
+                    uncertainty_energy=f_data.get("uq_result", {}).get(
+                        "sigma_e_kcal_per_mol", 0.0
+                    ),
+                    reason=f_data.get("reason", "OOD"),
+                    ml_atoms=f_data.get("ml_atoms"),
+                )
+
+            fallback_ctrl = PhysicsFallbackController(
+                config=mace_cfg,
+                uq_monitor=uq_mon,
+                on_ood_frame=_on_ood,
+            )
 
     try:
         for cycle in range(opt.cycles):
@@ -288,17 +312,49 @@ def main() -> None:
             md_seconds = time.time() - md_started
 
             # MACE UQ evaluation and physics fallback monitoring
-            if fallback_ctrl is not None:
-                curr_state = context.getState(getPositions=True, getEnergy=True)
-                pos_arr = np.array(curr_state.getPositions(asNumpy=True))
-                # Evaluate ensemble variance on active region
-                uq_res = fallback_ctrl.uq_monitor.compute_from_ensemble_predictions(
-                    [pos_arr * 0.0, pos_arr * 0.0001],
-                    [0.0, 0.001],
-                    ml_atom_indices=ml_atoms,
+            if fallback_ctrl is not None and ensemble_evaluator is not None:
+                curr_state = context.getState(getPositions=True)
+                pos_nm = curr_state.getPositions(asNumpy=True).value_in_unit(unit.nanometer)
+                ml_atoms = partition_ml_atoms(
+                    topology,
+                    positions=pos_nm,
+                    ligand_resname=opt.ligand_resname,
+                    include_waters=True,
                 )
-                mode, w = fallback_ctrl.decide_state(uq_res, {"positions": pos_arr})
-                fallback_ctrl.apply_to_openmm_context(context, w)
+                if ml_atoms:
+                    pos_ang = pos_nm * 10.0  # nm -> Angstrom for MACE
+                    box_ang = None
+                    try:
+                        box_ang = (
+                            curr_state.getPeriodicBoxVectors(asNumpy=True)
+                            .value_in_unit(unit.nanometer)
+                            * 10.0
+                        )
+                    except Exception:
+                        box_ang = None
+                    try:
+                        forces_list, energies_list = ensemble_evaluator.evaluate(
+                            pos_ang,
+                            atomic_numbers,
+                            ml_atoms=ml_atoms,
+                            cell=box_ang,
+                            pbc=box_ang is not None,
+                        )
+                    except Exception as err:
+                        print(
+                            f"[MACE surrogate] committee evaluation failed: {err}",
+                            flush=True,
+                        )
+                    else:
+                        uq_res = fallback_ctrl.uq_monitor.compute_from_ensemble_predictions(
+                            forces_list,
+                            energies_list,
+                            ml_atom_indices=list(range(len(ml_atoms))),
+                        )
+                        mode, w = fallback_ctrl.decide_state(
+                            uq_res, {"positions": pos_ang, "ml_atoms": ml_atoms}
+                        )
+                        fallback_ctrl.apply_to_openmm_context(context, w)
 
             move_started = time.time()
             sampler.move(context)

@@ -176,12 +176,15 @@ def make_dynamics(
         add_ca_restraints(dynamics.context(), restraints)
     configure_ludovic_nonbonded(dynamics.context())
     if mace_config is not None and getattr(mace_config, "enabled", False):
+        # The GCMC sampler owns its Sire-built OpenMM context, so the mixed
+        # ML/MM system cannot be swapped in here without replacing the Sire
+        # dynamics engine.  Attach the validated config for downstream UQ /
+        # fallback monitoring and leave the classical dynamics untouched.
         try:
-            from csbrt.mace_surrogate import MACEMixedSystemBuilder
-            builder = MACEMixedSystemBuilder(mace_config)
-            # Annotate or wrap dynamics if applicable
-        except Exception:
-            pass
+            mace_config.validate()
+        except Exception as exc:
+            raise ValueError(f"Invalid MACE surrogate configuration: {exc}") from exc
+        dynamics._csbrt_mace_config = mace_config
     return dynamics
 
 

@@ -20,6 +20,8 @@ import numpy as np
 from .mace_mixed_system import (
     EV_PER_ANGSTROM_TO_KCAL_PER_MOL_ANG,
     EV_PER_ANGSTROM_TO_KJ_PER_MOL_NM,
+    EV_TO_KCAL_PER_MOL,
+    EV_TO_KJ_PER_MOL,
     KCAL_TO_KJ,
     MACEConfig,
 )
@@ -126,16 +128,16 @@ class MACEUQMonitor:
         else:
             forces_ev = forces_arr
 
-        # Convert energies to kcal/mol
+        # Convert energies to kcal/mol and eV
         if units_energy == "ev":
-            energies_kcal = energies_arr * (EV_PER_ANGSTROM_TO_KCAL_PER_MOL_ANG / 1.0)
             energies_ev = energies_arr
+            energies_kcal = energies_arr * EV_TO_KCAL_PER_MOL
         elif units_energy == "kj_per_mol":
+            energies_ev = energies_arr / EV_TO_KJ_PER_MOL
             energies_kcal = energies_arr / KCAL_TO_KJ
-            energies_ev = energies_arr / (KCAL_TO_KJ * 23.06054887)
-        else:
+        else:  # kcal_per_mol
+            energies_ev = energies_arr / EV_TO_KCAL_PER_MOL
             energies_kcal = energies_arr
-            energies_ev = energies_arr / EV_PER_ANGSTROM_TO_KCAL_PER_MOL_ANG
 
         # Filter by ML atom indices if provided
         if ml_atom_indices is not None and len(ml_atom_indices) > 0:

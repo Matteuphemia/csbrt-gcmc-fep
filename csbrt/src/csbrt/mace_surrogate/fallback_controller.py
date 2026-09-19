@@ -79,6 +79,7 @@ class PhysicsFallbackController:
         self.on_ood_frame = on_ood_frame
         self.recovery_steps = max(1, self.config.fallback_recovery_steps)
         self.state = FallbackState()
+        self._warned_missing_parameter = False
 
     def decide_state(
         self,
@@ -151,13 +152,30 @@ class PhysicsFallbackController:
         return self.state.current_mode, self.state.weight
 
     def apply_to_openmm_context(self, context: Any, weight: float | None = None) -> None:
-        """Apply the fallback weight parameter to an OpenMM Context without reinitialization."""
+        """Apply the fallback weight to an OpenMM Context without reinitialization.
+
+        The openmm-ml mixed system exposes a global parameter ``lambda_interpolate``
+        where 0.0 is pure classical MM and 1.0 is the ML/MM fast path.  Our
+        internal ``weight`` convention is 0.0 = MACE surrogate and 1.0 = classical
+        fallback, so the mapping is ``lambda_interpolate = 1.0 - weight``.
+
+        A context built from a plain classical system (e.g. a Sire-built GCMC
+        context) has no such parameter; the call is ignored and a single warning
+        is logged so the absence of the dual-Hamiltonian seam is visible.
+        """
         w = self.state.weight if weight is None else weight
-        if hasattr(context, "setParameter"):
-            try:
-                context.setParameter("fallback_weight", float(w))
-            except Exception:
-                pass
+        if not hasattr(context, "setParameter"):
+            return
+        try:
+            context.setParameter("lambda_interpolate", float(1.0 - w))
+        except Exception:
+            if not self._warned_missing_parameter:
+                logger.warning(
+                    "Context has no 'lambda_interpolate' global parameter; this is "
+                    "expected for a classical (non-mixed) system and means the "
+                    "zero-overhead fallback seam is not active."
+                )
+                self._warned_missing_parameter = True
 
     def run_stepped_simulation(
         self,

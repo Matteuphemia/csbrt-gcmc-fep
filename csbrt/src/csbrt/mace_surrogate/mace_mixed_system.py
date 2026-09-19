@@ -17,18 +17,50 @@ from typing import Any, Iterable, Sequence
 
 logger = logging.getLogger("csbrt.mace_surrogate")
 
-# Unit conversions
-EV_PER_ANGSTROM_TO_KJ_PER_MOL_NM = 9648.53321233  # 1 eV/Å = 9648.533 kJ/(mol*nm)
+# Unit conversions (sources of truth, do not hand-tune)
+# Force: 1 eV/Å = 9648.533 kJ/(mol·nm) = 23.06054887 kcal/(mol·Å)
+EV_PER_ANGSTROM_TO_KJ_PER_MOL_NM = 9648.53321233
 EV_PER_ANGSTROM_TO_KCAL_PER_MOL_ANG = 23.06054887
+# Energy: 1 eV = 96.485332 kJ/mol = 23.06054887 kcal/mol
+EV_TO_KJ_PER_MOL = 96.48533212
+EV_TO_KCAL_PER_MOL = 23.06054887
 KCAL_TO_KJ = 4.184
 ANGSTROM_TO_NM = 0.1
 NM_TO_ANGSTROM = 10.0
 
+# Exact MACE model names registered by openmm-ml (verified against
+# openmmml/models/macepotential.py).  "mace-omol-0" is NOT a valid name:
+# the registered foundation model is "mace-omol-0-extra-large".
+KNOWN_FOUNDATION_MODELS = {
+    "mace-off23-small",
+    "mace-off23-medium",
+    "mace-off23-large",
+    "mace-off24-medium",
+    "mace-mpa-0-medium",
+    "mace-omat-0-small",
+    "mace-omat-0-medium",
+    "mace-omol-0-extra-large",
+    "mace-les-off-small",
+    "mace-polar-1-small",
+    "mace-polar-1-medium",
+    "mace-polar-1-large",
+}
+
 DEFAULT_FOUNDATION_MODELS = (
     "mace-off23-small",
     "mace-off23-medium",
-    "mace-omol-0",
+    "mace-omol-0-extra-large",
 )
+
+# openmm-ml accepts 'single'/'double' precision keywords, not 'float32'.
+_OPENMMML_PRECISION = {
+    "float32": "single",
+    "float64": "double",
+    "single": "single",
+    "double": "double",
+}
+
+_WATER_RESNAMES = {"HOH", "WAT", "TIP3", "TIP3P", "H2O", "SOL", "SPC", "SPCE"}
 
 
 @dataclass
@@ -52,6 +84,15 @@ class MACEConfig:
     committee_size: int = 4
     custom_params: dict[str, Any] = field(default_factory=dict)
 
+    # Aliases accepted by from_dict for CLI/backwards compatibility.
+    _FIELD_ALIASES = {
+        "model": "model_name",
+        "uq_threshold": "uq_force_threshold_ev_per_ang",
+        "uq_force_threshold": "uq_force_threshold_ev_per_ang",
+        "energy_threshold": "uq_energy_threshold_kcal_per_mol",
+        "fallback_steps": "fallback_recovery_steps",
+    }
+
     @property
     def uq_force_threshold_kj_per_mol_nm(self) -> float:
         return self.uq_force_threshold_ev_per_ang * EV_PER_ANGSTROM_TO_KJ_PER_MOL_NM
@@ -64,6 +105,11 @@ class MACEConfig:
     def uq_energy_threshold_kj_per_mol(self) -> float:
         return self.uq_energy_threshold_kcal_per_mol * KCAL_TO_KJ
 
+    @property
+    def openmmml_precision(self) -> str | None:
+        """openmm-ml precision keyword ('single'/'double') or None for model default."""
+        return _OPENMMML_PRECISION.get(self.precision)
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
@@ -71,9 +117,33 @@ class MACEConfig:
     def from_dict(cls, data: dict[str, Any] | None) -> MACEConfig:
         if not data:
             return cls()
-        fields = {f for f in cls.__dataclass_fields__}
-        filtered = {k: v for k, v in data.items() if k in fields}
-        return cls(**filtered)
+        fields = {f for f in cls.__dataclass_fields__ if not f.startswith("_")}
+        normalized: dict[str, Any] = {}
+        for key, value in data.items():
+            canonical = cls._FIELD_ALIASES.get(key, key)
+            if canonical in fields:
+                normalized[canonical] = value
+        return cls(**normalized)
+
+    def validate(self) -> None:
+        """Raise a clear error early on unsupported configuration."""
+        if self.model_path:
+            if not Path(self.model_path).is_file():
+                raise FileNotFoundError(f"MACE model checkpoint not found: {self.model_path}")
+        elif self.model_name not in KNOWN_FOUNDATION_MODELS:
+            raise ValueError(
+                f"Unknown MACE foundation model {self.model_name!r}. "
+                f"Known: {sorted(KNOWN_FOUNDATION_MODELS)}. "
+                "For a local checkpoint set model_name='mace' and model_path=<file>."
+            )
+        if self.embedding not in ("mechanical", "electrostatic"):
+            raise ValueError(f"Unsupported embedding {self.embedding!r}")
+        if self.uq_force_threshold_ev_per_ang < 0 or self.uq_energy_threshold_kcal_per_mol < 0:
+            raise ValueError("UQ thresholds must be non-negative")
+        if self.committee_size < 1:
+            raise ValueError("committee_size must be >= 1")
+        if self.fallback_recovery_steps < 1:
+            raise ValueError("fallback_recovery_steps must be >= 1")
 
     def compute_signature(self) -> dict[str, Any]:
         """Generate deterministic signature for checkpointing and reproducibility."""
@@ -127,15 +197,17 @@ def partition_ml_atoms(
     Parameters
     ----------
     topology:
-        OpenMM Topology, MDTraj Topology, or object with .atoms() or .residues().
+        OpenMM Topology, or any object exposing ``.residues()`` / ``.atoms()``.
     positions:
-        Optional coordinates for spatial water selection (in nm).
+        Optional coordinates (in nm) used to select binding-site waters.
     ligand_resname:
         Residue name identifying the ligand molecule.
     include_waters:
-        Whether to include hydration waters within the binding sphere.
+        Whether to include hydration waters within the binding sphere.  Requires
+        ``positions`` so oxygen positions can be measured; otherwise the ML
+        region is ligand-only.
     sphere_center:
-        Optional (x, y, z) in nm for the water sphere; defaults to ligand centroid.
+        Optional (x, y, z) in nm for the water sphere; defaults to the ligand centroid.
     sphere_radius_nm:
         Cutoff radius for waters around the center (default: 1.0 nm = 10 Å).
 
@@ -145,60 +217,82 @@ def partition_ml_atoms(
         Sorted unique 0-based indices of atoms assigned to the ML potential region.
     """
     ml_atoms: set[int] = set()
+    ligand_coords: list[tuple[float, float, float]] = []
 
-    # Case 1: OpenMM Topology
-    if hasattr(topology, "atoms") and callable(topology.atoms):
-        ligand_coords: list[tuple[float, float, float]] = []
-        water_residues: list[list[int]] = []
+    def _select_waters(water_residue_atoms: list[list[int]]) -> None:
+        if not (include_waters and positions is not None and water_residue_atoms):
+            return
+        center = sphere_center
+        if center is None and ligand_coords:
+            center = (
+                sum(c[0] for c in ligand_coords) / len(ligand_coords),
+                sum(c[1] for c in ligand_coords) / len(ligand_coords),
+                sum(c[2] for c in ligand_coords) / len(ligand_coords),
+            )
+        if center is None:
+            return
+        r_sq = sphere_radius_nm * sphere_radius_nm
+        for atom_indices in water_residue_atoms:
+            if not atom_indices:
+                continue
+            ox_coord = _extract_atom_coords(positions, atom_indices[0])
+            dist_sq = (
+                (ox_coord[0] - center[0]) ** 2
+                + (ox_coord[1] - center[1]) ** 2
+                + (ox_coord[2] - center[2]) ** 2
+            )
+            if dist_sq <= r_sq:
+                ml_atoms.update(atom_indices)
 
+    # Preferred path: iterate residues directly (robust regardless of atom order).
+    if hasattr(topology, "residues") and callable(topology.residues):
+        water_residue_atoms: list[list[int]] = []
+        for residue in topology.residues():
+            res_name = getattr(residue, "name", "")
+            atom_indices = [int(atom.index) for atom in residue.atoms()]
+            if res_name == ligand_resname:
+                ml_atoms.update(atom_indices)
+                if positions is not None:
+                    for idx in atom_indices:
+                        ligand_coords.append(_extract_atom_coords(positions, idx))
+            elif include_waters and res_name in _WATER_RESNAMES:
+                if atom_indices:
+                    water_residue_atoms.append(atom_indices)
+        _select_waters(water_residue_atoms)
+
+    # Fallback: atom-walk over objects exposing .atoms() (OpenMM/MDTraj-style).
+    elif hasattr(topology, "atoms") and callable(topology.atoms):
+        water_residue_atoms: list[list[int]] = []
+        current_res_idx = None
+        current_water_atoms: list[int] = []
         for atom in topology.atoms():
-            res = atom.residue
+            residue = getattr(atom, "residue", None)
+            res_name = getattr(residue, "name", "")
             atom_idx = int(atom.index)
-            res_name = getattr(res, "name", "")
             if res_name == ligand_resname:
                 ml_atoms.add(atom_idx)
                 if positions is not None:
                     ligand_coords.append(_extract_atom_coords(positions, atom_idx))
-            elif include_waters and res_name in ("HOH", "WAT", "TIP3", "TIP3P", "H2O"):
-                # Group water residue atoms
-                if not water_residues or water_residues[-1][0] != res.index:
-                    water_residues.append([res.index, atom_idx])
+            elif include_waters and res_name in _WATER_RESNAMES:
+                res_idx = getattr(residue, "index", None)
+                if res_idx is not None and res_idx != current_res_idx:
+                    if current_water_atoms:
+                        water_residue_atoms.append(current_water_atoms)
+                    current_water_atoms = [atom_idx]
+                    current_res_idx = res_idx
                 else:
-                    water_residues[-1].append(atom_idx)
+                    current_water_atoms.append(atom_idx)
+        if current_water_atoms:
+            water_residue_atoms.append(current_water_atoms)
+        _select_waters(water_residue_atoms)
 
-        # Select binding site waters if requested and positions provided
-        if include_waters and positions is not None and water_residues:
-            if sphere_center is None and ligand_coords:
-                cx = sum(c[0] for c in ligand_coords) / len(ligand_coords)
-                cy = sum(c[1] for c in ligand_coords) / len(ligand_coords)
-                cz = sum(c[2] for c in ligand_coords) / len(ligand_coords)
-                center = (cx, cy, cz)
-            elif sphere_center is not None:
-                center = sphere_center
-            else:
-                center = None
-
-            if center is not None:
-                r_sq = sphere_radius_nm * sphere_radius_nm
-                for entry in water_residues:
-                    atom_indices = entry[1:]  # skip res.index
-                    # Check if oxygen (first atom in water) is within sphere
-                    ox_idx = atom_indices[0]
-                    ox_coord = _extract_atom_coords(positions, ox_idx)
-                    dist_sq = (
-                        (ox_coord[0] - center[0]) ** 2
-                        + (ox_coord[1] - center[1]) ** 2
-                        + (ox_coord[2] - center[2]) ** 2
-                    )
-                    if dist_sq <= r_sq:
-                        ml_atoms.update(atom_indices)
-
-    # Case 2: Sire system or object with selection
+    # Fallback: object supporting selection syntax (e.g. Sire System).
     elif hasattr(topology, "select") or hasattr(topology, "__getitem__"):
         try:
             ligand_sel = topology[f"resname {ligand_resname}"]
             for atom in ligand_sel.atoms():
-                ml_atoms.add(int(atom.index()))
+                idx = atom.index()
+                ml_atoms.add(int(idx.value() if hasattr(idx, "value") else idx))
         except Exception:
             pass
 
@@ -206,10 +300,17 @@ def partition_ml_atoms(
 
 
 class MACEMixedSystemBuilder:
-    """Builder for hybrid ML/MM OpenMM systems with MACE surrogate potentials."""
+    """Builder for hybrid ML/MM OpenMM systems with MACE surrogate potentials.
+
+    Uses the OpenMM-ML ``createMixedSystem(..., interpolate=True)`` contract so
+    the returned system can toggle between classical MM and ML/MM via the global
+    parameter ``lambda_interpolate`` (see :class:`MACEConfig` module docstring).
+    """
 
     def __init__(self, config: MACEConfig | None = None) -> None:
         self.config = config or MACEConfig()
+        self.last_mixed_system: Any = None
+        self.last_ml_atoms: list[int] = []
 
     def build_mixed_system(
         self,
@@ -217,12 +318,14 @@ class MACEMixedSystemBuilder:
         topology: Any,
         ml_atoms: Sequence[int] | None = None,
         positions: Any = None,
+        interpolate: bool = True,
     ) -> Any:
-        """Create a mixed ML/MM OpenMM System.
+        """Create a mixed ML/MM OpenMM ``System``.
 
-        Uses OpenMM-ML createMixedSystem() when available.
-        Falls back to a dual-Hamiltonian or surrogate representation if running
-        in mock/testing mode.
+        When ``interpolate`` is True the returned system carries a global
+        parameter ``lambda_interpolate`` (0.0 = classical, 1.0 = ML/MM) enabling
+        zero-overhead physics fallback.  If OpenMM-ML is unavailable the
+        classical ``system`` is returned unchanged so callers degrade gracefully.
         """
         if ml_atoms is None:
             ml_atoms = partition_ml_atoms(
@@ -232,56 +335,79 @@ class MACEMixedSystemBuilder:
                 include_waters=self.config.include_binding_site_waters,
                 sphere_radius_nm=self.config.binding_site_radius_nm,
             )
+        self.last_ml_atoms = list(ml_atoms)
 
         if not ml_atoms:
-            logger.warning("No ML atoms identified for MACE surrogate; returning classical system.")
+            logger.warning(
+                "No ML atoms identified for MACE surrogate; returning classical system."
+            )
             return system
 
         logger.info(
             f"Building MACE ML/MM mixed system: {len(ml_atoms)} ML atoms, "
-            f"model={self.config.model_name}, embedding={self.config.embedding}"
+            f"model={self.config.model_name}, embedding={self.config.embedding}, "
+            f"interpolate={interpolate}"
         )
 
         try:
             import openmmml
-
-            potential_kwargs = {}
-            if self.config.model_path:
-                potential_kwargs["modelPath"] = self.config.model_path
-
-            potential = openmmml.MLPotential(
-                "mace",
-                **potential_kwargs,
-            )
-            mixed_system = potential.createMixedSystem(
-                topology,
-                system,
-                ml_atoms,
-                implementation="mace",
-            )
-            return mixed_system
         except ImportError:
             logger.warning(
-                "openmmml not installed; creating surrogate dual-Hamiltonian system."
+                "openmmml not installed; MACE mixed system unavailable. "
+                "Returning classical system (no fast path)."
             )
-            return self._build_surrogate_mixed_system(system, ml_atoms)
+            return system
+
+        # modelPath is a constructor argument of MLPotential; device/precision
+        # are forwarded through createMixedSystem(**args) to the implementation.
+        ctor_kwargs: dict[str, Any] = {}
+        if self.config.model_path:
+            model_name = "mace"
+            ctor_kwargs["modelPath"] = str(self.config.model_path)
+        else:
+            model_name = self.config.model_name
+
+        try:
+            potential = openmmml.MLPotential(model_name, **ctor_kwargs)
+        except Exception as err:
+            logger.warning(f"Could not create MLPotential({model_name!r}): {err}")
+            return system
+
+        create_kwargs: dict[str, Any] = {
+            "interpolate": interpolate,
+            "device": self.config.device,
+        }
+        precision = self.config.openmmml_precision
+        if precision is not None:
+            create_kwargs["precision"] = precision
+
+        # Validate the requested embedding against what the potential supports.
+        try:
+            supported = set(potential.getSupportedEmbeddings())
+        except Exception:
+            supported = {"mechanical"}
+        embedding = self.config.embedding
+        if embedding not in supported:
+            logger.warning(
+                f"Embedding {embedding!r} not supported (supported={sorted(supported)}); "
+                "falling back to 'mechanical'."
+            )
+            embedding = "mechanical"
+        create_kwargs["embedding"] = embedding
+
+        try:
+            mixed_system = potential.createMixedSystem(
+                topology, system, list(ml_atoms), **create_kwargs
+            )
         except Exception as err:
             logger.warning(
-                f"OpenMM-ML createMixedSystem encountered: {err}; creating fallback surrogate."
+                f"OpenMM-ML createMixedSystem encountered: {err}; "
+                "returning classical system (no fast path)."
             )
-            return self._build_surrogate_mixed_system(system, ml_atoms)
-
-    def _build_surrogate_mixed_system(self, system: Any, ml_atoms: Sequence[int]) -> Any:
-        """Surrogate mixed system for environments without active openmm-ml.
-
-        Marks ML atoms and system properties so simulation and fallback controllers
-        can seamlessly execute.
-        """
-        # Annotate system with surrogate metadata if possible
-        if hasattr(system, "getForces"):
-            # OpenMM System
             return system
-        return system
+
+        self.last_mixed_system = mixed_system
+        return mixed_system
 
 
 def create_mace_mixed_system(
@@ -290,7 +416,10 @@ def create_mace_mixed_system(
     ml_atoms: Sequence[int] | None = None,
     config: MACEConfig | None = None,
     positions: Any = None,
+    interpolate: bool = True,
 ) -> Any:
     """Convenience function to generate a MACE mixed system."""
     builder = MACEMixedSystemBuilder(config)
-    return builder.build_mixed_system(system, topology, ml_atoms=ml_atoms, positions=positions)
+    return builder.build_mixed_system(
+        system, topology, ml_atoms=ml_atoms, positions=positions, interpolate=interpolate
+    )

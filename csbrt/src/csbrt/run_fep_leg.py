@@ -174,7 +174,7 @@ def main() -> None:
         config_payload["mlff"] = {
             "enabled": True,
             "model_name": opt.mace_model,
-            "uq_force_threshold": opt.mace_uq_threshold,
+            "uq_force_threshold_ev_per_ang": opt.mace_uq_threshold,
             "device": opt.mace_device,
         }
         config_amended = True

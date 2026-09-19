@@ -140,8 +140,9 @@ def _endpoint(cfg: dict, out: Path, dry: bool, through: str, stage: str) -> Path
         cmd.append("--enable-mace-surrogate")
         if mlff.get("model_name"):
             cmd.extend(["--mace-model", str(mlff["model_name"])])
-        if mlff.get("uq_force_threshold") is not None:
-            cmd.extend(["--mace-uq-threshold", str(mlff["uq_force_threshold"])])
+        uq_threshold = mlff.get("uq_force_threshold_ev_per_ang", mlff.get("uq_force_threshold"))
+        if uq_threshold is not None:
+            cmd.extend(["--mace-uq-threshold", str(uq_threshold)])
         if mlff.get("device"):
             cmd.extend(["--mace-device", str(mlff["device"])])
     run(cmd, dry=dry)
@@ -256,7 +257,8 @@ def _base_parser(description: str) -> argparse.ArgumentParser:
     p.add_argument("--enable-mace-surrogate", "--mace-surrogate", action="store_true",
                    help="Enable hybrid ML/MM MACE surrogate with active learning fallback")
     p.add_argument("--mace-model", type=str, default=None,
-                   help="MACE foundation model (mace-off23-small, mace-off23-medium, mace-omol-0)")
+                   help="MACE foundation model (mace-off23-small, mace-off23-medium, "
+                        "mace-omol-0-extra-large)")
     p.add_argument("--mace-uq-threshold", type=float, default=None,
                    help="MACE UQ force threshold in eV/A (default: 0.05)")
     p.add_argument("--mace-device", type=str, default=None,
@@ -267,21 +269,13 @@ def _base_parser(description: str) -> argparse.ArgumentParser:
 def _merge_cli_mace(cfg: dict, opt: argparse.Namespace) -> None:
     """Overlay CLI MACE surrogate flags onto loaded config."""
     if getattr(opt, "enable_mace_surrogate", False):
-        if "mlff" not in cfg:
-            cfg["mlff"] = {}
-        cfg["mlff"]["enabled"] = True
+        cfg.setdefault("mlff", {})["enabled"] = True
     if getattr(opt, "mace_model", None):
-        if "mlff" not in cfg:
-            cfg["mlff"] = {}
-        cfg["mlff"]["model_name"] = opt.mace_model
+        cfg.setdefault("mlff", {})["model_name"] = opt.mace_model
     if getattr(opt, "mace_uq_threshold", None) is not None:
-        if "mlff" not in cfg:
-            cfg["mlff"] = {}
-        cfg["mlff"]["uq_force_threshold"] = opt.mace_uq_threshold
+        cfg.setdefault("mlff", {})["uq_force_threshold_ev_per_ang"] = opt.mace_uq_threshold
     if getattr(opt, "mace_device", None):
-        if "mlff" not in cfg:
-            cfg["mlff"] = {}
-        cfg["mlff"]["device"] = opt.mace_device
+        cfg.setdefault("mlff", {})["device"] = opt.mace_device
 
 
 def _single_stage(stage: str):

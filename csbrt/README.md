@@ -118,6 +118,38 @@ csbrt --all --config run.yaml
 Set `profile: smoke` in the config for a fast plumbing run (reduced counts —
 **not** a scientific trajectory). See **Commands** above for per-stage invocation.
 
+## MACE MLFF surrogate (experimental)
+
+`csbrt.mace_surrogate` adds a hybrid ML/MM fast path to the GCMC/FEP dynamics:
+
+* **Fast path** — the ligand (and binding-site waters) are evaluated with a MACE
+  foundation model, everything else with ff14SB/TIP3P, via
+  `openmmml.MLPotential(...).createMixedSystem(..., interpolate=True)`.
+* **Zero-overhead fallback** — the mixed system exposes the global parameter
+  `lambda_interpolate` (0 = classical, 1 = ML/MM), so falling back to classical
+  physics is a single `setParameter` call, no Context rebuild.
+* **UQ monitor** — a committee of MACE models computes per-atom force std
+  $\sigma_{F,\max}$; above the threshold (default 0.05 eV/Å) the controller
+  falls back and harvests the frame into the active-learning buffer.
+* **Active learning** — OOD frames are RMSD-deduplicated, labelled, and used to
+  fine-tune the foundation model into `mace_finetuned_gen{k}.pt`.
+
+Enable with the `mlff:` block in `config.example.yaml` or
+`--enable-mace-surrogate --mace-model ...` on any `csbrt` command.
+
+```bash
+scripts/preflight_mace.py            # verify deps + CUDA + a MACE single-point
+python -m pytest tests -v            # unit tests (CPU-only, no GPU needed)
+scripts/benchmark_mace_speedup.py --smoke   # ns/day classical vs ML/MM
+```
+
+Status: the surrogate machinery, UQ/fallback controllers, active-learning buffer,
+CLI/config wiring and test suite are in place. Remaining before scientific use:
+(1) swapping the Sire-built GCMC/FEP OpenMM context for the mixed system (Loch
+and SOMD2 own their contexts — needs engine-level hookup), and (2) the Stage-6
+parity/speedup validation on the cluster. See
+`docs/mace_surrogate_integration.md`.
+
 ## Cluster / scale-out
 
 The endpoint series and the FEP network are embarrassingly parallel and ship with

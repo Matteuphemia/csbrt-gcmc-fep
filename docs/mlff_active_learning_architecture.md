@@ -68,7 +68,7 @@ The primary objective is to cut total simulation time by $\sim 50\%$ by utilizin
   - **Loch GCMC:** The ligand molecule (`resname LIG`) and water molecules currently within the GCMC sphere ($R = 10\text{ \AA}$) are assigned to the ML potential region. Protein residues and bulk waters are assigned to Amber ff14SB and TIP3P.
   - **SOMD2 FEP:** The perturbable ligand core ($A \to B$ alchemical morph) is assigned to the ML potential region; the receptor frame and bulk solvent remain classical.
 - **Embedding Scheme:** Mechanical embedding via `potential.createMixedSystem(system, topology, ml_atoms)`.
-- **Foundation Models:** `mace-off23-small`, `mace-off23-medium`, or `mace-omol-0`.
+- **Foundation Models:** `mace-off23-small`, `mace-off23-medium`, or `mace-omol-0-extra-large` (note: `mace-omol-0` is not a registered openmm-ml model name).
 
 ### 2.2 Component 2: Uncertainty Quantification Runtime Monitor (`uq_monitor.py`)
 - **Metric Formulation:**

@@ -22,3 +22,20 @@ edges: fep_edges/edges.tsv
 # --- analysis ---
 rowan_edges:  # optional benchmark CSV
 experimental: # optional per-compound experimental dG CSV
+# --- MACE MLFF surrogate & active learning (optional) ---
+mlff:
+  enabled: false              # hybrid ML/MM MACE surrogate with UQ fallback
+  model_name: mace-off23-small
+  model_path: null            # optional local checkpoint; else built-in model
+  device: cuda
+  precision: float32          # float32 -> openmm-ml 'single', float64 -> 'double'
+  embedding: mechanical       # mechanical | electrostatic
+  uq_force_threshold_ev_per_ang: 0.05
+  uq_energy_threshold_kcal_per_mol: 1.0
+  include_binding_site_waters: true
+  binding_site_radius_nm: 1.0
+  ligand_resname: LIG
+  fallback_recovery_steps: 10
+  committee_size: 4
+  active_learning: true
+  ood_buffer_path: null
