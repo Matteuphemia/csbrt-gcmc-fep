@@ -106,6 +106,8 @@ class OODBuffer:
     def __init__(self, buffer_file: Path | str | None = None) -> None:
         self.buffer_file = Path(buffer_file) if buffer_file else None
         self.frames: list[OODFrame] = []
+        if self.buffer_file and self.buffer_file.is_file():
+            self.load()
 
     def __len__(self) -> int:
         return len(self.frames)
@@ -230,6 +232,17 @@ class OODBuffer:
             f"(cutoff={rmsd_cutoff_angstrom} Å)"
         )
         return representatives
+
+    def cluster_by_rmsd(
+        self,
+        cutoff_angstrom: float = 0.5,
+        target_atoms_only: bool = True,
+    ) -> list[OODFrame]:
+        """Convenience alias for cluster_and_deduplicate."""
+        return self.cluster_and_deduplicate(
+            rmsd_cutoff_angstrom=cutoff_angstrom,
+            target_atoms_only=target_atoms_only,
+        )
 
 
 class ReferenceLabeler:

@@ -19,6 +19,12 @@ seed: 20260714
 profile: full             # 'smoke' for plumbing tests
 # --- fep ---
 edges: fep_edges/edges.tsv
+# --- mlff surrogate (MACE + Active Learning) ---
+mlff:
+  enabled: false             # set true to enable MACE surrogate acceleration
+  model_name: mace-off23-small # mace-off23-small, mace-off23-medium, mace-omol-0
+  uq_force_threshold: 0.05   # eV/A; triggers physics fallback if exceeded
+  device: cuda               # cuda or cpu
 # --- analysis ---
 rowan_edges:  # optional benchmark CSV
 experimental: # optional per-compound experimental dG CSV

@@ -78,6 +78,14 @@ class MACEUQMonitor:
         self._history_sigma_f: list[float] = []
         self._history_sigma_e: list[float] = []
 
+    @property
+    def force_threshold_ev(self) -> float:
+        return self.force_threshold_ev_per_ang
+
+    @property
+    def energy_threshold_ev(self) -> float:
+        return self.energy_threshold_kcal / 23.06054887
+
     def compute_from_ensemble_predictions(
         self,
         forces_list: Sequence[np.ndarray],
