@@ -23,9 +23,18 @@ csbrt-equilibrate = "csbrt.cli:equilibrate"
 csbrt-gcmc        = "csbrt.cli:gcmc"
 csbrt-fep         = "csbrt.cli:fep"
 csbrt-analysis    = "csbrt.cli:analysis"
+csbrt-mace-preflight = "csbrt.mace_preflight:main"
+csbrt-mace-benchmark = "csbrt.mace_benchmark:main"
+csbrt-mace-al        = "csbrt.mace_active_learning:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
 csbrt = ["*.py", "*.yaml", "*.yml", "*.slurm", "*.sh"]
+
+[project.optional-dependencies]
+# The MACE surrogate. openmm-ml is conda-forge only, so it is not listed here;
+# environment.yml installs it. mace-torch and its torch pin come from pip in
+# install.sh, against the cu126 wheels the rest of the stack uses.
+test = ["pytest"]

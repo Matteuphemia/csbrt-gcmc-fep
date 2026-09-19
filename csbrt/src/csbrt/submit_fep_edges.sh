@@ -17,6 +17,11 @@ FEP_ROOT="${FEP_ROOT:-$PWD/fep-runs}"
 FEP_CONFIG="${FEP_CONFIG:-$pipeline_dir/somd2_config.yaml}"
 FEP_ENV="${FEP_ENV:-automated-fep}"
 FEP_GCMC="${FEP_GCMC:-0}"
+FEP_MACE="${FEP_MACE:-0}"
+MACE_ARGS="${MACE_ARGS:-}"
+MACE_MODEL="${MACE_MODEL:-mace-off23-small}"
+MACE_COMMITTEE="${MACE_COMMITTEE:-}"
+MACE_UQ_THRESHOLD="${MACE_UQ_THRESHOLD:-0.05}"
 BATCH="${BATCH:-8}"
 PARTITION=""; ACCOUNT=""; QOS=""
 AGGREGATE=1
@@ -34,6 +39,12 @@ Usage: $0 --manifest FEP.tsv [options]
   --batch N           Max concurrent edges = array %N (default: 8; use 24 for 24 GPUs)
   --with-gcmc         Run bound-leg GCMC during FEP (default: off)
   --without-gcmc      Force bound-leg GCMC off (default)
+  --with-mace         Run the ligand on the MACE ML/MM surrogate (default: off)
+  --mace-model NAME   Foundation model (default: mace-off23-small)
+  --mace-committee F  Committee member .model for uncertainty; repeat for each.
+                      Two or more are needed, and they must be fine-tunes of
+                      the same foundation model (same cutoff radius).
+  --mace-uq-threshold X  Force-variance trigger in eV/A (default: 0.05)
   --fep-env NAME      Mamba env (default: automated-fep)
   --partition NAME    Slurm partition
   --account NAME      Slurm account
@@ -54,6 +65,10 @@ while [[ $# -gt 0 ]]; do
     --batch) BATCH="$2"; shift 2 ;;
     --with-gcmc) FEP_GCMC=1; shift ;;
     --without-gcmc) FEP_GCMC=0; shift ;;
+    --with-mace) FEP_MACE=1; shift ;;
+    --mace-model) MACE_MODEL="$2"; FEP_MACE=1; shift 2 ;;
+    --mace-committee) MACE_COMMITTEE="$MACE_COMMITTEE $2"; FEP_MACE=1; shift 2 ;;
+    --mace-uq-threshold) MACE_UQ_THRESHOLD="$2"; FEP_MACE=1; shift 2 ;;
     --fep-env) FEP_ENV="$2"; shift 2 ;;
     --partition) PARTITION="$2"; shift 2 ;;
     --account) ACCOUNT="$2"; shift 2 ;;
@@ -98,6 +113,17 @@ fi
 [[ -z "$ROWAN_EXPERIMENTAL" || -s "$ROWAN_EXPERIMENTAL" ]] || { echo "--experimental file not found: $ROWAN_EXPERIMENTAL" >&2; exit 2; }
 compare=0; [[ -n "$ROWAN_EDGES" && "$AGGREGATE" -eq 1 ]] && compare=1
 
+# Render the surrogate flags once, here, so all 52 array tasks run the same
+# physics; a per-task rebuild would let an edited environment split the network.
+if [[ "$FEP_MACE" == "1" && -z "$MACE_ARGS" ]]; then
+  MACE_ARGS="--enable-mace-surrogate --mace-model $MACE_MODEL"
+  MACE_ARGS+=" --mace-uq-threshold $MACE_UQ_THRESHOLD"
+  for member in $MACE_COMMITTEE; do
+    [[ -s "$member" ]] || { echo "--mace-committee file not found: $member" >&2; exit 2; }
+    MACE_ARGS+=" --mace-committee $member"
+  done
+fi
+
 edge_count="$(( $(wc -l < "$FEP_MANIFEST") - 1 ))"
 [[ "$edge_count" -ge 1 ]] || { echo "Manifest has no edges" >&2; exit 2; }
 array_spec="0-$((edge_count - 1))%$BATCH"
@@ -107,6 +133,7 @@ echo "Manifest : $FEP_MANIFEST ($edge_count edges)"
 echo "Run root : $FEP_ROOT"
 echo "Array    : $array_spec  (<= $BATCH concurrent GPUs)"
 echo "GCMC     : $([[ "$FEP_GCMC" == "1" ]] && echo on || echo off)"
+echo "MACE     : $([[ "$FEP_MACE" == "1" ]] && echo "on ($MACE_ARGS)" || echo off)"
 echo "Aggregate: $([[ "$AGGREGATE" == "1" ]] && echo yes || echo no)"
 echo "Compare  : $([[ "$compare" == "1" ]] && echo "yes ($ROWAN_EDGES)" || echo no)"
 
@@ -120,6 +147,7 @@ command -v sbatch >/dev/null || { echo "sbatch unavailable; use --dry-run" >&2; 
 mkdir -p "$log_dir"
 
 export PIPELINE_DIR="$pipeline_dir" FEP_MANIFEST FEP_ROOT FEP_CONFIG FEP_ENV FEP_GCMC
+export FEP_MACE MACE_ARGS
 export ROWAN_EDGES ROWAN_EXPERIMENTAL ROWAN_EDGE_COLUMN
 
 common_sbatch=(--parsable --export=ALL)

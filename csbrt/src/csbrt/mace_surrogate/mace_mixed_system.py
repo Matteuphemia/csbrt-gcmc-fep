@@ -447,6 +447,13 @@ def attach_mace_to_context(
     The Context keeps its positions, velocities and box vectors. Afterwards
     ``context.setParameter('lambda_interpolate', 1.0)`` runs the surrogate and
     ``0.0`` runs the original classical Hamiltonian, with no rebuild in between.
+
+    The Context's ``System`` is modified **in place**: its Forces are replaced
+    by the mixed set. Anything else holding that System object -- a reference
+    labeler, a second Context, a benchmark baseline -- sees the mixed version
+    afterwards, so take a copy first if a purely classical System is still
+    needed. Setting ``lambda_interpolate`` to 0 gives the classical *energies*
+    but not a classical System.
     """
     live = context.getSystem()
     state = context.getState(getPositions=True)

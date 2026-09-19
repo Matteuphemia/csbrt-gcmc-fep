@@ -17,6 +17,46 @@ model_seeds: 1
 # --- endpoint (equilibrate / gcmc) ---
 seed: 20260714
 profile: full             # 'smoke' for plumbing tests
+# --- MACE ML/MM surrogate (optional; off unless enabled) ---
+# The perturbable ligand is evaluated with a MACE foundation model while the
+# protein and bulk solvent stay on Amber ff14SB / TIP3P, a committee watches
+# the prediction uncertainty, and any frame it is not confident about is
+# integrated on the original classical Hamiltonian instead and harvested for
+# fine-tuning. See docs/mlff_active_learning_architecture.md.
+#
+# Read docs/mlff_throughput_expectations.md before assuming this is faster:
+# hybrid ML/MM buys accuracy in the ligand's internal energetics, and on the
+# numbers in docs/wang2024_design_space_report.md it costs throughput rather
+# than saving it. Benchmark your own system with
+# scripts/benchmark_mace_speedup.py before committing a campaign to it.
+mlff:
+  enabled: false
+  model_name: mace-off23-small   # or -medium/-large; see KNOWN_FOUNDATION_MODELS
+  # model_path:                  # a fine-tuned .model overrides model_name
+  device: cuda
+  precision: single              # 'single' for MD, 'double' for minimisation
+  ligand_resname: LIG
+  # A force-variance estimate needs two or more models, and they must be
+  # fine-tunes of ONE foundation model: MACE refuses a committee whose members
+  # have different cutoff radii. With fewer than two the geometry guard is the
+  # only out-of-distribution detector. csbrt-mace-al produces these.
+  committee_model_paths: []
+  uq_force_threshold_ev_per_ang: 0.05    # ~1.15 kcal/mol/A
+  uq_energy_threshold_kcal_per_mol: 1.0
+  uq_interval_steps: 100         # one check per 0.2 ps at a 2 fs timestep
+  geometry_guard: true
+  fallback_steps: 50             # classical steps after a trigger
+  fallback_abort_fraction: 0.5   # latch to classical past this much fallback
+  strict: false                  # true: fail rather than run classical physics
+  # Loch swaps water identities every GCMC cycle and toggles ghost waters in
+  # the live Context. The ML atom list is fixed when the Context is built and
+  # cannot follow that, so waters stay out of the ML region by default.
+  include_binding_site_waters: false
+  binding_site_radius_nm: 1.0
+  max_ml_atoms: 250              # past a few hundred the MLFF costs more than MM
+  active_learning: true
+  ood_buffer_dir: al_buffer      # relative to the stage output directory
+
 # --- fep ---
 edges: fep_edges/edges.tsv
 # --- analysis ---

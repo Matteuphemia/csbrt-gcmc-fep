@@ -27,6 +27,11 @@ name: csbrt
 #                 git+https://github.com/MobleyLab/slow-rotations.git
 #     pip install "mace-torch>=0.3.10"
 #
+# openmm-ml needs OpenMM >= 8.6.1 for the mechanical-embedding interpolation
+# the MACE surrogate's fallback switch is built on (the 'lambda_interpolate'
+# global parameter). An older OpenMM installs fine and then fails at
+# createMixedSystem(interpolate=True). csbrt-mace-preflight checks this.
+#
 # NOTE: run `mamba env create` with -y in non-interactive contexts; without a TTY
 # it blocks on the "Confirm changes: [Y/n]" prompt and looks like a hung solve.
 channels:
@@ -48,8 +53,14 @@ dependencies:
   - cuda-nvvm=12.8
   - cuda-cudart-dev=12.8
 
-  # --- MLFF surrogate & active learning ---
+  # --- MLFF surrogate & active learning (Stage 0 of implementation_plan.md) ---
+  # openmm-ml is the mixed ML/MM system builder; openmm-torch is the OpenMM
+  # plugin that runs a TorchScript model inside a Context, and MUST be the
+  # build compiled against this OpenMM and this CUDA, or the Context dies at
+  # first evaluation. mace-torch itself comes from pip (see install.sh) so it
+  # picks up the same cu126 torch as OpenFold3 rather than pulling a second one.
   - openmm-ml
+  - openmm-torch
 
   # --- preparation / analysis ---
   - ambertools

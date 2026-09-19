@@ -289,14 +289,148 @@ def ghost_history(path: Path) -> dict[str, Any]:
     }
 
 
-def mace_signature(config: dict[str, Any] | None) -> dict[str, Any] | None:
-    """Generate signature for MACE surrogate configuration to detect parameter changes."""
-    if not config or not config.get("enabled", False):
+# --------------------------------------------------------------------------- MLFF
+
+# The MACE surrogate flags are identical across every stage script, and a stage
+# whose flags drift from its neighbours silently runs different physics. They
+# are declared once here and parsed once here.
+
+MACE_ARGUMENT_NAMES = (
+    "enable_mace_surrogate",
+    "mace_model",
+    "mace_model_path",
+    "mace_committee",
+    "mace_uq_threshold",
+    "mace_uq_interval",
+    "mace_fallback_steps",
+    "mace_device",
+    "mace_ml_waters",
+    "mace_strict",
+)
+
+
+def add_mace_arguments(parser) -> None:
+    """Register the MACE surrogate flags on a stage script's parser."""
+    group = parser.add_argument_group("MACE ML/MM surrogate")
+    group.add_argument(
+        "--enable-mace-surrogate", "--mace-surrogate",
+        action="store_true", dest="enable_mace_surrogate",
+        help="Run the perturbable ligand on a MACE ML/MM surrogate with "
+             "uncertainty-triggered fallback to classical physics",
+    )
+    group.add_argument(
+        "--mace-model", default="mace-off23-small",
+        help="openmm-ml foundation model name (default: mace-off23-small)",
+    )
+    group.add_argument(
+        "--mace-model-path", default=None,
+        help="Locally trained/fine-tuned .model file; overrides --mace-model",
+    )
+    group.add_argument(
+        "--mace-committee", action="append", default=[], metavar="MODEL",
+        help="Committee member for uncertainty quantification; repeat for "
+             "each member. Two or more are needed for a force variance, and "
+             "they must be fine-tunes of the same foundation model.",
+    )
+    group.add_argument(
+        "--mace-uq-threshold", type=float, default=0.05,
+        help="Committee force-variance trigger in eV/A (default: 0.05)",
+    )
+    group.add_argument(
+        "--mace-uq-interval", type=int, default=100,
+        help="MD steps between uncertainty evaluations (default: 100)",
+    )
+    group.add_argument(
+        "--mace-fallback-steps", type=int, default=50,
+        help="Classical steps to run after a trigger before retrying the "
+             "surrogate (default: 50)",
+    )
+    group.add_argument("--mace-device", default="cuda",
+                       help="Device for MACE inference (default: cuda)")
+    group.add_argument(
+        "--mace-ml-waters", action="store_true",
+        help="Put binding-site waters in the ML region as well as the ligand. "
+             "Off by default: the ML atom list is fixed for the life of the "
+             "Context, so Loch cannot exchange an ML water.",
+    )
+    group.add_argument(
+        "--mace-strict", action="store_true",
+        help="Fail the stage if the surrogate cannot be built, instead of "
+             "continuing on classical physics",
+    )
+
+
+def mace_options_dict(options) -> dict[str, Any]:
+    """Collect the MACE flags off a parsed namespace as an mlff config mapping."""
+    return {
+        "enabled": bool(getattr(options, "enable_mace_surrogate", False)),
+        "model_name": getattr(options, "mace_model", "mace-off23-small"),
+        "model_path": getattr(options, "mace_model_path", None),
+        "committee_model_paths": list(getattr(options, "mace_committee", []) or []),
+        "uq_force_threshold_ev_per_ang": getattr(options, "mace_uq_threshold", 0.05),
+        "uq_interval_steps": getattr(options, "mace_uq_interval", 100),
+        "fallback_steps": getattr(options, "mace_fallback_steps", 50),
+        "device": getattr(options, "mace_device", "cuda"),
+        "include_binding_site_waters": bool(getattr(options, "mace_ml_waters", False)),
+        "strict": bool(getattr(options, "mace_strict", False)),
+    }
+
+
+def mace_config_from_options(options, *, ligand_resname: str | None = None):
+    """Build a ``MACEConfig`` from a stage script's parsed arguments."""
+    from csbrt.mace_surrogate import MACEConfig
+
+    payload = mace_options_dict(options)
+    if ligand_resname is not None:
+        payload["ligand_resname"] = ligand_resname
+    return MACEConfig.from_dict(payload)
+
+
+def mace_command_arguments(mlff: dict[str, Any] | None) -> list[str]:
+    """Render an ``mlff:`` config block back into stage-script flags."""
+    if not mlff or not mlff.get("enabled"):
+        return []
+    arguments: list[str] = ["--enable-mace-surrogate"]
+    simple = {
+        "model_name": "--mace-model",
+        "model_path": "--mace-model-path",
+        "uq_force_threshold_ev_per_ang": "--mace-uq-threshold",
+        "uq_interval_steps": "--mace-uq-interval",
+        "fallback_steps": "--mace-fallback-steps",
+        "device": "--mace-device",
+    }
+    for key, flag in simple.items():
+        value = mlff.get(key)
+        if value is not None:
+            arguments.extend([flag, str(value)])
+    for member in mlff.get("committee_model_paths") or []:
+        arguments.extend(["--mace-committee", str(member)])
+    if mlff.get("include_binding_site_waters"):
+        arguments.append("--mace-ml-waters")
+    if mlff.get("strict"):
+        arguments.append("--mace-strict")
+    return arguments
+
+
+def mace_signature(config: "dict[str, Any] | Any | None") -> dict[str, Any] | None:
+    """Fingerprint the MACE surrogate settings for a checkpoint marker.
+
+    Accepts either an ``mlff`` mapping or a ``MACEConfig``. Returns ``None``
+    when the surrogate is off, so a classical run's marker is byte-identical to
+    one produced before this package existed and existing checkpoints stay
+    valid.
+    """
+    from csbrt.mace_surrogate import MACEConfig
+
+    if config is None:
         return None
-    try:
-        from csbrt.mace_surrogate import MACEConfig
-        m_cfg = MACEConfig.from_dict(config)
-        return m_cfg.compute_signature()
-    except Exception:
-        return config
+    if isinstance(config, MACEConfig):
+        resolved = config
+    else:
+        if not config.get("enabled", False):
+            return None
+        resolved = MACEConfig.from_dict(config)
+    if not resolved.enabled:
+        return None
+    return resolved.compute_signature()
 

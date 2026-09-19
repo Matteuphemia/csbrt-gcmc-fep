@@ -26,6 +26,8 @@ import shlex
 import subprocess
 import sys
 
+from .pipeline_utils import mace_command_arguments
+
 HERE = Path(__file__).resolve().parent
 STAGES = ("preprocess", "equilibrate", "gcmc", "fep", "analysis")
 
@@ -135,15 +137,7 @@ def _endpoint(cfg: dict, out: Path, dry: bool, through: str, stage: str) -> Path
         "--profile", cfg.get("profile", "full"),
         "--through", through,
     ]
-    mlff = cfg.get("mlff", {})
-    if mlff.get("enabled"):
-        cmd.append("--enable-mace-surrogate")
-        if mlff.get("model_name"):
-            cmd.extend(["--mace-model", str(mlff["model_name"])])
-        if mlff.get("uq_force_threshold") is not None:
-            cmd.extend(["--mace-uq-threshold", str(mlff["uq_force_threshold"])])
-        if mlff.get("device"):
-            cmd.extend(["--mace-device", str(mlff["device"])])
+    cmd += mace_command_arguments(cfg.get("mlff"))
     run(cmd, dry=dry)
     return run_dir
 
@@ -252,36 +246,58 @@ def _base_parser(description: str) -> argparse.ArgumentParser:
     p.add_argument("--config", type=Path, required=True,
                    help="YAML/JSON config; see config.example.yaml")
     p.add_argument("--dry-run", action="store_true", help="Print commands only")
-    # MACE surrogate options
-    p.add_argument("--enable-mace-surrogate", "--mace-surrogate", action="store_true",
-                   help="Enable hybrid ML/MM MACE surrogate with active learning fallback")
-    p.add_argument("--mace-model", type=str, default=None,
-                   help="MACE foundation model (mace-off23-small, mace-off23-medium, mace-omol-0)")
-    p.add_argument("--mace-uq-threshold", type=float, default=None,
-                   help="MACE UQ force threshold in eV/A (default: 0.05)")
-    p.add_argument("--mace-device", type=str, default=None,
-                   help="Compute device for MACE inference (cuda/cpu)")
+    group = p.add_argument_group(
+        "MACE ML/MM surrogate",
+        "Overlay onto the config's 'mlff:' block; see config.example.yaml",
+    )
+    group.add_argument("--enable-mace-surrogate", "--mace-surrogate",
+                       action="store_true", dest="enable_mace_surrogate",
+                       help="Run the ligand on a MACE ML/MM surrogate with "
+                            "uncertainty-triggered fallback to classical physics")
+    group.add_argument("--mace-model", type=str, default=None,
+                       help="openmm-ml foundation model name")
+    group.add_argument("--mace-model-path", type=str, default=None,
+                       help="Locally trained/fine-tuned .model file")
+    group.add_argument("--mace-committee", action="append", default=None,
+                       metavar="MODEL",
+                       help="Committee member for uncertainty; repeat for each")
+    group.add_argument("--mace-uq-threshold", type=float, default=None,
+                       help="Committee force-variance trigger in eV/A")
+    group.add_argument("--mace-device", type=str, default=None,
+                       help="Device for MACE inference (cuda/cpu)")
+    group.add_argument("--mace-strict", action="store_true",
+                       help="Fail rather than falling back to classical physics "
+                            "when the surrogate cannot be built")
     return p
 
 
+#: CLI flag -> key in the config's ``mlff:`` block.
+_MACE_OVERRIDES = {
+    "mace_model": "model_name",
+    "mace_model_path": "model_path",
+    "mace_committee": "committee_model_paths",
+    "mace_uq_threshold": "uq_force_threshold_ev_per_ang",
+    "mace_device": "device",
+}
+
+
 def _merge_cli_mace(cfg: dict, opt: argparse.Namespace) -> None:
-    """Overlay CLI MACE surrogate flags onto loaded config."""
+    """Overlay the CLI surrogate flags onto the config's 'mlff:' block.
+
+    A flag left unset does not touch the config, so the YAML stays the single
+    place the settings live and the CLI is only an override.
+    """
+    mlff = cfg.setdefault("mlff", {})
     if getattr(opt, "enable_mace_surrogate", False):
-        if "mlff" not in cfg:
-            cfg["mlff"] = {}
-        cfg["mlff"]["enabled"] = True
-    if getattr(opt, "mace_model", None):
-        if "mlff" not in cfg:
-            cfg["mlff"] = {}
-        cfg["mlff"]["model_name"] = opt.mace_model
-    if getattr(opt, "mace_uq_threshold", None) is not None:
-        if "mlff" not in cfg:
-            cfg["mlff"] = {}
-        cfg["mlff"]["uq_force_threshold"] = opt.mace_uq_threshold
-    if getattr(opt, "mace_device", None):
-        if "mlff" not in cfg:
-            cfg["mlff"] = {}
-        cfg["mlff"]["device"] = opt.mace_device
+        mlff["enabled"] = True
+    if getattr(opt, "mace_strict", False):
+        mlff["strict"] = True
+    for attribute, key in _MACE_OVERRIDES.items():
+        value = getattr(opt, attribute, None)
+        if value is not None:
+            mlff[key] = value
+    if not mlff:
+        cfg.pop("mlff")
 
 
 def _single_stage(stage: str):

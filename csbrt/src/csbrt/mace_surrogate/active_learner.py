@@ -36,6 +36,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import time
 from typing import Any, Callable, Iterable, Sequence
 
@@ -55,6 +56,21 @@ _SYMBOLS = (
     "I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os Ir "
     "Pt Au Hg Tl Pb Bi Po At Rn"
 ).split()
+
+
+def find_trainer() -> str | None:
+    """Locate ``mace_run_train``.
+
+    Checked beside ``sys.executable`` as well as on PATH, the same way
+    ``ev71_loch_common.nvcc_path`` finds nvcc: a stage script invoked by
+    absolute path from a Slurm job does not necessarily have the environment's
+    bin directory on PATH.
+    """
+    found = shutil.which("mace_run_train")
+    if found:
+        return found
+    beside = Path(sys.executable).with_name("mace_run_train")
+    return str(beside) if beside.is_file() else None
 
 
 def element_symbol(atomic_number: int) -> str:
@@ -531,6 +547,21 @@ def extract_subsystem(system: Any, atom_indices: Sequence[int]) -> Any:
     """
     import openmm
 
+    for force in system.getForces():
+        if isinstance(force, openmm.CustomCVForce):
+            names = {
+                force.getGlobalParameterName(i)
+                for i in range(force.getNumGlobalParameters())
+            }
+            if "lambda_interpolate" in names:
+                raise ValueError(
+                    "This System already carries a mixed ML/MM Hamiltonian "
+                    "(it has a lambda_interpolate CustomCVForce). "
+                    "attach_mace_to_context replaces a System's Forces in "
+                    "place, so build the reference labeler from a copy taken "
+                    "before the surrogate was attached."
+                )
+
     wanted = [int(i) for i in atom_indices]
     remap = {old: new for new, old in enumerate(wanted)}
     subsystem = openmm.System()
@@ -661,17 +692,17 @@ class MACEFineTuner:
         self.device = device
         self.default_dtype = default_dtype
         self.extra_args = list(extra_args)
-        self.executable = executable or shutil.which("mace_run_train")
+        self.executable = executable or find_trainer()
 
     def command(self, dataset: Path, work_dir: Path, name: str) -> list[str]:
-        """The exact ``mace_run_train`` invocation, so it can be inspected/logged."""
-        if self.executable is None:
-            raise FileNotFoundError(
-                "mace_run_train is not on PATH; install mace-torch "
-                "(`pip install 'mace-torch>=0.3.10'`)"
-            )
+        """The exact ``mace_run_train`` invocation, so it can be inspected/logged.
+
+        Renders even when the trainer is not installed, so ``--dry-run`` on a
+        login node still shows what the GPU job would run. Actually executing
+        a missing trainer is what raises.
+        """
         return [
-            self.executable,
+            self.executable or "mace_run_train",
             "--name", name,
             "--foundation_model", self.foundation_model,
             "--train_file", str(dataset),
@@ -749,6 +780,12 @@ class MACEFineTuner:
             )
             return record
 
+        if self.executable is None:
+            raise FileNotFoundError(
+                "mace_run_train is not on PATH or beside this interpreter; "
+                "install mace-torch (`pip install 'mace-torch>=0.3.10'`), or "
+                "pass dry_run=True to render the command without running it"
+            )
         logger.info("Fine-tuning MACE generation %d: %s", generation, " ".join(command))
         completed = subprocess.run(
             command, capture_output=True, text=True, check=False

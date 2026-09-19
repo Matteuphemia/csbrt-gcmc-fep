@@ -14,8 +14,10 @@ import subprocess
 import yaml
 
 from pipeline_utils import (
+    add_mace_arguments,
     complete_checkpoint,
     implementation_signature,
+    mace_config_from_options,
     mace_signature,
     require_file,
     sha256,
@@ -50,15 +52,11 @@ def options() -> argparse.Namespace:
         "and mixing work scales as num_lambda^2 per cycle, where cycles = "
         "runtime / energy_frequency. Raise energy_frequency for REX runs.",
     )
-    # MACE surrogate options
-    parser.add_argument("--enable-mace-surrogate", "--mace-surrogate", action="store_true",
-                        help="Enable MACE MLFF hybrid surrogate in SOMD2")
-    parser.add_argument("--mace-model", default="mace-off23-small",
-                        help="MACE model identifier")
-    parser.add_argument("--mace-uq-threshold", type=float, default=0.05,
-                        help="UQ force threshold in eV/A")
-    parser.add_argument("--mace-device", default="cuda",
-                        help="MACE inference device")
+    parser.add_argument(
+        "--mace-ligand-resname", default="LIG",
+        help="Residue name of the perturbable molecule for the ML region",
+    )
+    add_mace_arguments(parser)
     return parser.parse_args()
 
 
@@ -164,27 +162,21 @@ def main() -> None:
 
     # --replica-exchange overrides the config. Write the amended config beside the
     # leg so what actually ran is recorded, rather than mutating the shared file.
-    config_amended = False
     if opt.replica_exchange and not config_payload.get("replica_exchange"):
         config_payload["replica_exchange"] = True
-        config_amended = True
-        print("replica exchange enabled", flush=True)
-
-    if opt.enable_mace_surrogate:
-        config_payload["mlff"] = {
-            "enabled": True,
-            "model_name": opt.mace_model,
-            "uq_force_threshold": opt.mace_uq_threshold,
-            "device": opt.mace_device,
-        }
-        config_amended = True
-        print(f"MACE MLFF surrogate enabled (model: {opt.mace_model})", flush=True)
-
-    if config_amended:
         effective = output / "effective_config.yaml"
         effective.write_text(yaml.safe_dump(config_payload, sort_keys=True))
         config = effective
-        print(f"effective config written to {effective}", flush=True)
+        print(f"replica exchange enabled; effective config written to {effective}",
+              flush=True)
+
+    # The MACE surrogate is deliberately NOT written into the SOMD2 config:
+    # SOMD2 validates its own keys and rejects unknown ones, so an 'mlff' block
+    # there fails the leg before it starts. It travels as a sidecar plus a
+    # PYTHONPATH hook instead -- see mace_surrogate/somd2_hook.py.
+    mace_config = mace_config_from_options(
+        opt, ligand_resname=opt.mace_ligand_resname
+    )
 
     marker = output / "fep_leg.complete.json"
     signature = {
@@ -204,16 +196,7 @@ def main() -> None:
         "gcmc_bulk_sampling_probability": (
             opt.gcmc_bulk_sampling_probability if opt.gcmc_bound else None
         ),
-        "mace_surrogate": (
-            mace_signature({
-                "enabled": opt.enable_mace_surrogate,
-                "model_name": opt.mace_model,
-                "uq_force_threshold_ev_per_ang": opt.mace_uq_threshold,
-                "device": opt.mace_device,
-            })
-            if opt.enable_mace_surrogate
-            else None
-        ),
+        "mace_surrogate": mace_signature(mace_config),
         "implementation": implementation_signature(
             sources={
                 "run_fep_leg.py": Path(__file__),
@@ -269,6 +252,24 @@ def main() -> None:
             # Slurm normally sets this. Make a one-GPU local invocation behave
             # the same way without overriding scheduler-assigned devices.
             environment["CUDA_VISIBLE_DEVICES"] = "0"
+        if mace_config.enabled:
+            from csbrt.mace_surrogate.somd2_hook import prepare_leg_environment
+
+            manifest = prepare_leg_environment(
+                mace_config,
+                output,
+                environment,
+                source=f"{opt.leg}-{output.name}",
+            )
+            handle.write(f"[pipeline] MACE surrogate sidecar: {manifest}\n")
+            handle.flush()
+            print(
+                f"MACE ML/MM surrogate enabled for this leg "
+                f"(model {mace_config.potential_name}, ML region resname "
+                f"{mace_config.ligand_resname}); per-window reports will be "
+                f"written to {manifest['stats_dir']}",
+                flush=True,
+            )
         subprocess.run(
             command,
             stdout=handle,
@@ -291,6 +292,29 @@ def main() -> None:
             f"Expected {expected_windows} lambda energy trajectories, found "
             f"{len(energies)} — SOMD2 wrote no/partial energies for this leg.{detail}"
         )
+    mace_windows = None
+    if mace_config.enabled:
+        from csbrt.mace_surrogate.somd2_hook import collect_window_statistics
+
+        mace_windows = collect_window_statistics(output / "mace_surrogate")
+        if not mace_windows["attached"]:
+            message = (
+                "MACE surrogate was requested but no lambda window reported "
+                f"attaching it; see {output}/runner.stdout.log. The leg ran "
+                "classical physics."
+            )
+            if opt.mace_strict:
+                raise RuntimeError(message)
+            print(f"WARNING: {message}", flush=True)
+        else:
+            print(
+                f"[MACE surrogate] {mace_windows['windows']} window(s), "
+                f"{100 * (1 - mace_windows['fallback_fraction']):.1f}% of MD "
+                f"steps on the surrogate, {mace_windows['ood_frames']} OOD "
+                "frame(s) harvested",
+                flush=True,
+            )
+
     outputs = [log, *energies]
     complete_checkpoint(
         marker,
@@ -304,6 +328,7 @@ def main() -> None:
             "config_sha256": sha256(config),
             "lambda_energy_files": len(energies),
             "expected_lambda_windows": expected_windows,
+            "mace_surrogate": mace_windows,
         },
     )
     print(f"FEP_LEG_COMPLETE={marker}", flush=True)

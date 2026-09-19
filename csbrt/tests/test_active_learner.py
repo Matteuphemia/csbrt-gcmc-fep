@@ -440,7 +440,29 @@ def test_fine_tune_reports_a_failed_trainer(tmp_path):
     assert (tmp_path / "finetune_gen1.log").is_file()
 
 
-def test_fine_tune_without_mace_on_path(tmp_path):
+def test_dry_run_works_without_the_trainer_installed(tmp_path):
+    """A login node with no GPU stack can still render the command."""
     tuner = MACEFineTuner(device="cpu", executable=None)
+    tuner.executable = None
+    result = tuner.fine_tune(labelled_frames(), tmp_path / "gen1.model", dry_run=True)
+    assert result["status"] == "prepared"
+    assert result["command"][0] == "mace_run_train"
+
+
+def test_fine_tune_without_the_trainer_raises(tmp_path):
+    tuner = MACEFineTuner(device="cpu", executable=None)
+    tuner.executable = None
     with pytest.raises(FileNotFoundError, match="mace_run_train"):
-        tuner.command(Path("x.xyz"), tmp_path, "name")
+        tuner.fine_tune(labelled_frames(), tmp_path / "gen1.model")
+
+
+def test_extract_subsystem_refuses_an_already_mixed_system(built_system, stub_config):
+    """Guard against labelling against the surrogate instead of the force field."""
+    from csbrt.mace_surrogate import attach_mace_to_context
+
+    context = built_system.context()
+    attach_mace_to_context(
+        context, built_system.topology, stub_config, built_system.ligand_atoms
+    )
+    with pytest.raises(ValueError, match="already carries a mixed"):
+        extract_subsystem(context.getSystem(), built_system.ligand_atoms)

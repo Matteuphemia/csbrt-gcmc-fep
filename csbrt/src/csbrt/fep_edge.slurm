@@ -13,6 +13,13 @@ set -eo pipefail
 : "${PIPELINE_DIR:?}" "${FEP_MANIFEST:?}" "${FEP_ROOT:?}" "${FEP_CONFIG:?}" "${SLURM_ARRAY_TASK_ID:?}"
 FEP_ENV="${FEP_ENV:-automated-fep}"
 FEP_GCMC="${FEP_GCMC:-0}"
+# MACE ML/MM surrogate, off unless FEP_MACE=1. MACE_ARGS is the rendered flag
+# list; submit_fep_edges.sh builds it, or export it directly.
+FEP_MACE="${FEP_MACE:-0}"
+mace_args=()
+if [[ "$FEP_MACE" == "1" ]]; then
+  read -r -a mace_args <<< "${MACE_ARGS:---enable-mace-surrogate}"
+fi
 
 line_number="$((SLURM_ARRAY_TASK_ID + 2))"
 row="$(awk -F '\t' -v line="$line_number" 'NR == line {print; exit}' "$FEP_MANIFEST")"
@@ -46,11 +53,12 @@ if [[ "$FEP_GCMC" == "1" ]]; then
     --gcmc-excess-chemical-potential "${GCMC_EXCESS_CHEMICAL_POTENTIAL:--6.09 kcal/mol}"
     --gcmc-bulk-sampling-probability "${GCMC_BULK_SAMPLING_PROBABILITY:-0.0}")
 fi
-python -u "$PIPELINE_DIR/run_fep_leg.py" "${bound_args[@]}"
+python -u "$PIPELINE_DIR/run_fep_leg.py" "${bound_args[@]}" ${mace_args[@]+"${mace_args[@]}"}
 
 # 3. Free leg (never uses GCMC).
 python -u "$PIPELINE_DIR/run_fep_leg.py" --stream "$edge_root/setup/${edge_id}_free.bss" \
-  --config "$FEP_CONFIG" --output-dir "$edge_root/free" --leg free --platform cuda --max-gpus 1
+  --config "$FEP_CONFIG" --output-dir "$edge_root/free" --leg free --platform cuda --max-gpus 1 \
+  ${mace_args[@]+"${mace_args[@]}"}
 
 # 4. Analyse this edge (DDG_bind = DG_bound - DG_free).
 export PYMBAR_DISABLE_JAX="${PYMBAR_DISABLE_JAX:-1}"

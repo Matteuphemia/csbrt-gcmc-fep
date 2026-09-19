@@ -13,7 +13,10 @@ import time
 from typing import Any
 
 from pipeline_utils import (
+    add_mace_arguments,
     implementation_signature,
+    mace_command_arguments,
+    mace_options_dict,
     read_json,
     require_file,
     resolve_scripts_dir,
@@ -158,11 +161,7 @@ def options() -> argparse.Namespace:
     parser.add_argument("--force-stage", action="append", choices=STAGES, default=[])
     parser.add_argument("--cluster-stride", type=int, default=1)
     parser.add_argument("--max-distance-memory-gb", type=float, default=32.0)
-    # MACE surrogate options
-    parser.add_argument("--enable-mace-surrogate", "--mace-surrogate", action="store_true")
-    parser.add_argument("--mace-model", default="mace-off23-small")
-    parser.add_argument("--mace-uq-threshold", type=float, default=0.05)
-    parser.add_argument("--mace-device", default="cuda")
+    add_mace_arguments(parser)
     return parser.parse_args()
 
 
@@ -343,13 +342,7 @@ def main() -> None:
         "--md-platform", opt.md_platform,
         "--precision", opt.precision,
     ]
-    if opt.enable_mace_surrogate:
-        production_command.extend([
-            "--enable-mace-surrogate",
-            "--mace-model", str(opt.mace_model),
-            "--mace-uq-threshold", str(opt.mace_uq_threshold),
-            "--mace-device", str(opt.mace_device),
-        ])
+    production_command.extend(mace_command_arguments(mace_options_dict(opt)))
     if "production" in forced:
         production_command.append("--force")
     for name, value in PRODUCTION_PROFILE_ARGS[opt.profile].items():

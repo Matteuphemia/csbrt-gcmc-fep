@@ -49,8 +49,17 @@ if not torch.cuda.is_available():
     raise SystemExit("FAIL: pip torch reports no CUDA device")
 print(f"  numpy {numpy.__version__} | torch {torch.__version__} cuda={torch.cuda.is_available()}")
 print(f"  sire {sire.__version__} loch {loch.__version__} somd2 {somd2.__version__}")
-print(f"  openmmml {openmmml.__name__} | mace {mace.__version__}")
+print(f"  openmm {openmm.version.version} | openmm-ml present | mace {mace.__version__}")
+# openmm-ml's interpolating mixed system, which the MACE fallback switch is
+# built on, needs OpenMM 8.6.1 or newer. Catch it here rather than 20 minutes
+# into a GCMC production run.
+if tuple(int(p) for p in openmm.version.short_version.split(".")[:3]) < (8, 6, 1):
+    raise SystemExit(
+        f"FAIL: openmm {openmm.version.version} is too old for openmm-ml's "
+        "interpolate=True mixed systems; the MACE surrogate needs >= 8.6.1"
+    )
 CHECK
+echo "  run 'csbrt-mace-preflight' to check the MACE surrogate on a GPU node"
 echo "  conda C++ torch libs present in $ENV_LIB (required by loch GCMC)"
 
 echo "== done: mamba activate $ENV =="
