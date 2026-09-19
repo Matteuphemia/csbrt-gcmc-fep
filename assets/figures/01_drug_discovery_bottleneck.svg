@@ -1,0 +1,300 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 650" width="1200" height="650" style="background:#090d16; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <!-- Background Gradients -->
+    <radialGradient id="bgGlow" cx="50%" cy="15%" r="65%">
+      <stop offset="0%" stop-color="#1e293b" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#090d16" stop-opacity="1"/>
+    </radialGradient>
+    <radialGradient id="emeraldAura" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="roseAura" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f43f5e" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#f43f5e" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="cyanAura" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Card Gradients -->
+    <linearGradient id="cardGradDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#151e32"/>
+      <stop offset="100%" stop-color="#0d1424"/>
+    </linearGradient>
+    <linearGradient id="cardGradHighlight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#122b34"/>
+      <stop offset="50%" stop-color="#10252e"/>
+      <stop offset="100%" stop-color="#0a1922"/>
+    </linearGradient>
+    
+    <!-- Accent Borders -->
+    <linearGradient id="borderEmerald" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="50%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+    <linearGradient id="borderRose" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f43f5e" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#f43f5e" stop-opacity="0.1"/>
+    </linearGradient>
+    <linearGradient id="borderCyan" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0.1"/>
+    </linearGradient>
+
+    <!-- UI Elements -->
+    <linearGradient id="badgeEmerald" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+
+    <!-- Glow Filters -->
+    <filter id="glowGreen" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="shadowCard" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="1200" height="650" fill="url(#bgGlow)"/>
+
+  <!-- Subtle Background Grid -->
+  <g opacity="0.04" stroke="#ffffff" stroke-width="1">
+    <line x1="0" y1="130" x2="1200" y2="130"/>
+    <line x1="0" y1="260" x2="1200" y2="260"/>
+    <line x1="0" y1="390" x2="1200" y2="390"/>
+    <line x1="0" y1="520" x2="1200" y2="520"/>
+    <line x1="200" y1="0" x2="200" y2="650"/>
+    <line x1="400" y1="0" x2="400" y2="650"/>
+    <line x1="600" y1="0" x2="600" y2="650"/>
+    <line x1="800" y1="0" x2="800" y2="650"/>
+    <line x1="1000" y1="0" x2="1000" y2="650"/>
+  </g>
+
+  <!-- HEADER REGION -->
+  <g transform="translate(60, 42)">
+    <!-- Category Pill -->
+    <rect x="0" y="0" width="280" height="24" rx="12" fill="#1e293b" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+    <circle cx="12" cy="12" r="4" fill="#38bdf8"/>
+    <text x="24" y="16" fill="#94a3b8" font-size="11" font-weight="600" letter-spacing="1.2">PARADIGM SHIFT IN DRUG DISCOVERY</text>
+
+    <!-- Main Title -->
+    <text x="0" y="56" fill="#ffffff" font-size="28" font-weight="800" letter-spacing="-0.5">The Computational Drug Discovery Bottleneck</text>
+    <text x="0" y="80" fill="#94a3b8" font-size="14" font-weight="400">Why pharma stalled between rigid speed and impossible scale — and how our hybrid engine bridges the chasm.</text>
+  </g>
+
+  <!-- CARD 1: CLASSICAL PHYSICS (Left) -->
+  <g transform="translate(60, 150)">
+    <rect width="330" height="420" rx="16" fill="url(#cardGradDark)" stroke="url(#borderRose)" stroke-width="1.5" filter="url(#shadowCard)"/>
+    <circle cx="165" cy="80" r="100" fill="url(#roseAura)"/>
+
+    <!-- Header Badge -->
+    <rect x="20" y="20" width="130" height="22" rx="11" fill="rgba(244,63,94,0.12)" stroke="#f43f5e" stroke-opacity="0.3" stroke-width="1"/>
+    <text x="32" y="35" fill="#f43f5e" font-size="10.5" font-weight="700" letter-spacing="0.5">CLASSICAL PHYSICS</text>
+    
+    <text x="20" y="68" fill="#ffffff" font-size="18" font-weight="700">Molecular Mechanics</text>
+    <text x="20" y="88" fill="#64748b" font-size="12" font-weight="500">Rigid Force Fields (Amber / OPLS)</text>
+
+    <!-- Visual Metaphor: Rigid Springs / Ball & Stick Failure -->
+    <g transform="translate(105, 108)">
+      <circle cx="20" cy="25" r="14" fill="#1e293b" stroke="#f43f5e" stroke-width="2"/>
+      <text x="20" y="29" fill="#f43f5e" font-size="10" font-weight="700" text-anchor="middle">C</text>
+      
+      <!-- Stiff Spring Line -->
+      <path d="M 34 25 L 42 20 L 48 30 L 54 20 L 60 30 L 68 25 L 86 25" fill="none" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="2,2"/>
+      
+      <circle cx="100" cy="25" r="14" fill="#1e293b" stroke="#f43f5e" stroke-width="2"/>
+      <text x="100" y="29" fill="#f43f5e" font-size="10" font-weight="700" text-anchor="middle">N</text>
+      
+      <rect x="18" y="48" width="84" height="18" rx="4" fill="rgba(244,63,94,0.15)"/>
+      <text x="60" y="60" fill="#fda4af" font-size="9" font-weight="600" text-anchor="middle">Rigid Harmonic Springs</text>
+    </g>
+
+    <!-- Core Metrics Box -->
+    <g transform="translate(20, 185)">
+      <rect width="290" height="64" rx="8" fill="rgba(0,0,0,0.3)" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+      <text x="16" y="24" fill="#94a3b8" font-size="11">Simulation Speed</text>
+      <text x="16" y="48" fill="#f43f5e" font-size="18" font-weight="700">100 - 1000 <tspan font-size="12" font-weight="400" fill="#94a3b8">ns/day</tspan></text>
+      
+      <line x1="145" y1="12" x2="145" y2="52" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      
+      <text x="160" y="24" fill="#94a3b8" font-size="11">FEP Accuracy</text>
+      <text x="160" y="48" fill="#f43f5e" font-size="18" font-weight="700">± 2.0 - 3.5 <tspan font-size="12" font-weight="400" fill="#94a3b8">kcal/mol</tspan></text>
+    </g>
+
+    <!-- Limitations Checklist -->
+    <g transform="translate(24, 270)" font-size="12" fill="#cbd5e1">
+      <g transform="translate(0, 0)">
+        <circle cx="6" cy="6" r="6" fill="rgba(244,63,94,0.2)"/>
+        <text x="6" y="10" fill="#f43f5e" font-size="11" font-weight="900" text-anchor="middle">✕</text>
+        <text x="20" y="10" fill="#94a3b8">Zero quantum polarization response</text>
+      </g>
+      <g transform="translate(0, 26)">
+        <circle cx="6" cy="6" r="6" fill="rgba(244,63,94,0.2)"/>
+        <text x="6" y="10" fill="#f43f5e" font-size="11" font-weight="900" text-anchor="middle">✕</text>
+        <text x="20" y="10" fill="#94a3b8">Inaccurate heteroaromatic torsions</text>
+      </g>
+      <g transform="translate(0, 52)">
+        <circle cx="6" cy="6" r="6" fill="rgba(244,63,94,0.2)"/>
+        <text x="6" y="10" fill="#f43f5e" font-size="11" font-weight="900" text-anchor="middle">✕</text>
+        <text x="20" y="10" fill="#94a3b8">Misses non-classical water coordination</text>
+      </g>
+    </g>
+
+    <!-- Bottom Business Impact Tag -->
+    <g transform="translate(20, 360)">
+      <rect width="290" height="42" rx="8" fill="rgba(244,63,94,0.08)" stroke="#f43f5e" stroke-opacity="0.2" stroke-width="1"/>
+      <text x="14" y="25" fill="#fda4af" font-size="11.5" font-weight="600">Cost: $2.6B avg. clinical failure rate</text>
+    </g>
+  </g>
+
+  <!-- CARD 2: PURE QUANTUM MECHANICS (Middle) -->
+  <g transform="translate(415, 150)">
+    <rect width="330" height="420" rx="16" fill="url(#cardGradDark)" stroke="url(#borderCyan)" stroke-width="1.5" filter="url(#shadowCard)"/>
+    <circle cx="165" cy="80" r="100" fill="url(#cyanAura)"/>
+
+    <!-- Header Badge -->
+    <rect x="20" y="20" width="130" height="22" rx="11" fill="rgba(6,182,212,0.12)" stroke="#06b6d4" stroke-opacity="0.3" stroke-width="1"/>
+    <text x="32" y="35" fill="#06b6d4" font-size="10.5" font-weight="700" letter-spacing="0.5">PURE QUANTUM</text>
+    
+    <text x="20" y="68" fill="#ffffff" font-size="18" font-weight="700">Ab Initio DFT / QM</text>
+    <text x="20" y="88" fill="#64748b" font-size="12" font-weight="500">Density Functional Theory</text>
+
+    <!-- Visual Metaphor: Orbital Clouds / Infinite Clock -->
+    <g transform="translate(105, 108)">
+      <ellipse cx="60" cy="25" rx="36" ry="18" fill="none" stroke="#06b6d4" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.7"/>
+      <ellipse cx="60" cy="25" rx="18" ry="36" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity="0.5"/>
+      <circle cx="60" cy="25" r="7" fill="#06b6d4"/>
+      
+      <rect x="18" y="48" width="84" height="18" rx="4" fill="rgba(6,182,212,0.15)"/>
+      <text x="60" y="60" fill="#67e8f9" font-size="9" font-weight="600" text-anchor="middle">O(N³) - O(N⁴) Scaling</text>
+    </g>
+
+    <!-- Core Metrics Box -->
+    <g transform="translate(20, 185)">
+      <rect width="290" height="64" rx="8" fill="rgba(0,0,0,0.3)" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+      <text x="16" y="24" fill="#94a3b8" font-size="11">Simulation Speed</text>
+      <text x="16" y="48" fill="#06b6d4" font-size="18" font-weight="700">0.0001 <tspan font-size="12" font-weight="400" fill="#94a3b8">ns/day</tspan></text>
+      
+      <line x1="145" y1="12" x2="145" y2="52" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      
+      <text x="160" y="24" fill="#94a3b8" font-size="11">FEP Accuracy</text>
+      <text x="160" y="48" fill="#38bdf8" font-size="18" font-weight="700">± 0.2 <tspan font-size="12" font-weight="400" fill="#94a3b8">kcal/mol</tspan></text>
+    </g>
+
+    <!-- Limitations Checklist -->
+    <g transform="translate(24, 270)" font-size="12" fill="#cbd5e1">
+      <g transform="translate(0, 0)">
+        <circle cx="6" cy="6" r="6" fill="rgba(244,63,94,0.2)"/>
+        <text x="6" y="10" fill="#f43f5e" font-size="11" font-weight="900" text-anchor="middle">✕</text>
+        <text x="20" y="10" fill="#94a3b8">50,000 atoms impossible to compute</text>
+      </g>
+      <g transform="translate(0, 26)">
+        <circle cx="6" cy="6" r="6" fill="rgba(244,63,94,0.2)"/>
+        <text x="6" y="10" fill="#f43f5e" font-size="11" font-weight="900" text-anchor="middle">✕</text>
+        <text x="20" y="10" fill="#94a3b8">Requires 10,000+ years per target run</text>
+      </g>
+      <g transform="translate(0, 52)">
+        <circle cx="6" cy="6" r="6" fill="rgba(244,63,94,0.2)"/>
+        <text x="6" y="10" fill="#f43f5e" font-size="11" font-weight="900" text-anchor="middle">✕</text>
+        <text x="20" y="10" fill="#94a3b8">Prohibitive compute cost ($1M+/run)</text>
+      </g>
+    </g>
+
+    <!-- Bottom Business Impact Tag -->
+    <g transform="translate(20, 360)">
+      <rect width="290" height="42" rx="8" fill="rgba(6,182,212,0.08)" stroke="#06b6d4" stroke-opacity="0.2" stroke-width="1"/>
+      <text x="14" y="25" fill="#a5f3fc" font-size="11.5" font-weight="600">Bottleneck: Unusable for screening scale</text>
+    </g>
+  </g>
+
+  <!-- CARD 3: OUR SOLUTION (Right - Highlighted & Elevated) -->
+  <g transform="translate(770, 138)">
+    <!-- Outer Glow Box -->
+    <rect x="-4" y="-4" width="378" height="448" rx="20" fill="url(#borderEmerald)" opacity="0.3" filter="url(#glowGreen)"/>
+    <rect width="370" height="440" rx="18" fill="url(#cardGradHighlight)" stroke="url(#borderEmerald)" stroke-width="2" filter="url(#shadowCard)"/>
+    <circle cx="185" cy="110" r="140" fill="url(#emeraldAura)"/>
+
+    <!-- Solution Banner Flag -->
+    <rect x="24" y="-12" width="140" height="26" rx="13" fill="url(#badgeEmerald)" filter="url(#glowGreen)"/>
+    <text x="94" y="5" fill="#ffffff" font-size="11" font-weight="800" text-anchor="middle" letter-spacing="1">★ OUR SOLUTION</text>
+    
+    <!-- Title Area -->
+    <text x="24" y="44" fill="#34d399" font-size="11" font-weight="700" letter-spacing="1.2">HYBRID AI + CLASSICAL FEP</text>
+    <text x="24" y="72" fill="#ffffff" font-size="22" font-weight="800">MACE-GNN + SOMD2</text>
+    <text x="24" y="92" fill="#6ee7b7" font-size="13" font-weight="500">Equivariant Neural Pocket + Fast Solvent</text>
+
+    <!-- Visual Metaphor: Hybrid Atom / Neural Graph Lens -->
+    <g transform="translate(125, 112)">
+      <!-- GNN Graph Nodes -->
+      <circle cx="20" cy="25" r="13" fill="#065f46" stroke="#34d399" stroke-width="2"/>
+      <text x="20" y="29" fill="#ecfdf5" font-size="10" font-weight="800" text-anchor="middle">C</text>
+      
+      <circle cx="100" cy="25" r="13" fill="#065f46" stroke="#34d399" stroke-width="2"/>
+      <text x="100" y="29" fill="#ecfdf5" font-size="10" font-weight="800" text-anchor="middle">N</text>
+
+      <circle cx="60" cy="6" r="10" fill="#047857" stroke="#10b981" stroke-width="2"/>
+      <text x="60" y="9" fill="#ecfdf5" font-size="8.5" font-weight="800" text-anchor="middle">O</text>
+
+      <!-- Equivariant Tensor Edges -->
+      <line x1="33" y1="25" x2="87" y2="25" stroke="#34d399" stroke-width="2.5"/>
+      <line x1="28" y1="18" x2="52" y2="10" stroke="#34d399" stroke-width="1.5" stroke-dasharray="2,2"/>
+      <line x1="92" y1="18" x2="68" y2="10" stroke="#34d399" stroke-width="1.5" stroke-dasharray="2,2"/>
+      
+      <rect x="14" y="46" width="92" height="18" rx="4" fill="rgba(16,185,129,0.2)"/>
+      <text x="60" y="58" fill="#a7f3d0" font-size="9" font-weight="700" text-anchor="middle">E(3) Higher-Order GNN</text>
+    </g>
+
+    <!-- Core Metrics Box -->
+    <g transform="translate(20, 195)">
+      <rect width="330" height="70" rx="10" fill="rgba(6,95,70,0.25)" stroke="#10b981" stroke-width="1.5"/>
+      
+      <text x="18" y="26" fill="#a7f3d0" font-size="11" font-weight="600">Sim. Speed (GPU)</text>
+      <text x="18" y="53" fill="#ffffff" font-size="20" font-weight="800">25 - 40 <tspan font-size="12" font-weight="500" fill="#a7f3d0">ns/day</tspan></text>
+      
+      <line x1="165" y1="14" x2="165" y2="58" stroke="rgba(52,211,153,0.3)" stroke-width="1"/>
+      
+      <text x="180" y="26" fill="#a7f3d0" font-size="11" font-weight="600">Binding Accuracy</text>
+      <text x="180" y="53" fill="#34d399" font-size="20" font-weight="800">± 0.3 <tspan font-size="12" font-weight="500" fill="#a7f3d0">kcal/mol</tspan></text>
+    </g>
+
+    <!-- Feature Checklist -->
+    <g transform="translate(24, 285)" font-size="12.5" fill="#f0fdf4">
+      <g transform="translate(0, 0)">
+        <circle cx="7" cy="7" r="7" fill="#10b981"/>
+        <path d="M 4 7 L 6 9 L 10 5" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
+        <text x="24" y="11" font-weight="600" fill="#ecfdf5">Full DFT-level polarization &amp; charge transfer</text>
+      </g>
+      <g transform="translate(0, 28)">
+        <circle cx="7" cy="7" r="7" fill="#10b981"/>
+        <path d="M 4 7 L 6 9 L 10 5" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
+        <text x="24" y="11" font-weight="600" fill="#ecfdf5">Rigorous thermodynamic cycle closure</text>
+      </g>
+      <g transform="translate(0, 56)">
+        <circle cx="7" cy="7" r="7" fill="#10b981"/>
+        <path d="M 4 7 L 6 9 L 10 5" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
+        <text x="24" y="11" font-weight="600" fill="#ecfdf5">Autonomous Fallback ensures 100% completion</text>
+      </g>
+    </g>
+
+    <!-- Bottom Highlight Banner -->
+    <g transform="translate(20, 375)">
+      <rect width="330" height="45" rx="9" fill="url(#badgeEmerald)"/>
+      <text x="165" y="27" fill="#ffffff" font-size="13" font-weight="800" text-anchor="middle">52% Faster Turnaround • Wet-Lab Match</text>
+    </g>
+  </g>
+
+  <!-- BOTTOM STRIP / EXECUTIVE TAKEAWAY -->
+  <g transform="translate(60, 590)">
+    <rect width="1080" height="38" rx="8" fill="#111c30" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <circle cx="24" cy="19" r="5" fill="#34d399"/>
+    <text x="38" y="23" fill="#cbd5e1" font-size="12" font-weight="500">
+      <tspan font-weight="700" fill="#ffffff">Executive Summary:</tspan> We bypass the $2.6B trial-and-error chemistry trap by deploying Quantum ML exclusively inside the binding pocket while letting classical mechanics handle bulk water.
+    </text>
+  </g>
+</svg>

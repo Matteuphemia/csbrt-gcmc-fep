@@ -24,6 +24,19 @@ See [`csbrt/README.md`](csbrt/README.md) for stage contracts, the environment
 constraints (why conda is mandatory, why the CUDA toolchain is pinned whole, why
 the predictor is OpenFold3), and the diagnostics worth running.
 
+## VC Investor Demo & Comparative Benchmark Suite (`euph1-antig`)
+
+A comprehensive verification and interactive demonstration suite comparing the **Original Classical Pipeline** against the **New MACE ML/MM + Active Learning Pipeline**:
+
+- **[Interactive VC Demo Dashboard](demo/index.html):** Zero-install, rich interactive web dashboard with live KPI badges, interactive AI safety net simulator, 3D molecular pocket explorer, benchmark charts, and enterprise ROI calculator. Open directly in any browser: `demo/index.html`.
+- **[Series A/B Investor Brief](VC_INVESTOR_BRIEF.md):** Executive memorandum covering market problem, deep-tech breakthrough, unit economics, and competitive moat.
+- **[Technical Verification & Benchmarking Report](BENCHMARK_AND_VERIFICATION_REPORT.md):** Diligence report detailing all 6 testing angles (Hamiltonian parity, torsional PES, UQ interception, active learning loop, free energy accuracy, and 52.4% speedup pathway).
+- **[Pitch Deck Visual Assets](assets/figures/):** 5 publication-grade, non-science-friendly vector SVG diagrams (`01_drug_discovery_bottleneck.svg`, `02_quantum_microscope_hybrid_architecture.svg`, etc.).
+- **Run the Comparative Verification Suite:**
+  ```bash
+  python csbrt/src/csbrt/compare_tests/run_all_comparisons.py --output-dir demo/data
+  ```
+
 ## MACE ML/MM surrogate
 
 The perturbable ligand can optionally be evaluated with a MACE foundation model
