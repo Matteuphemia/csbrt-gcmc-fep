@@ -108,6 +108,7 @@ class MixedSystemHandle:
     potential_name: str
     interpolating: bool
     backend: str
+    compactness: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -117,6 +118,7 @@ class MixedSystemHandle:
             "interpolating": self.interpolating,
             "force_group": self.force_group,
             **self.region.to_dict(),
+            **self.compactness,
         }
 
 
@@ -333,6 +335,85 @@ def validate_ml_region(region: MLRegion, config: MACEConfig) -> None:
 # --------------------------------------------------------------------------- build
 
 
+def nonbonded_cutoff_nm(system: Any) -> float | None:
+    """The shortest cutoff any periodic NonbondedForce in the system uses."""
+    import openmm
+    import openmm.unit as unit
+
+    cutoffs = []
+    for force in system.getForces():
+        if not isinstance(force, openmm.NonbondedForce):
+            continue
+        if force.getNonbondedMethod() == openmm.NonbondedForce.NoCutoff:
+            continue
+        cutoffs.append(
+            force.getCutoffDistance().value_in_unit(unit.nanometer)
+        )
+    return min(cutoffs) if cutoffs else None
+
+
+def region_diameter_nm(positions: Any, ml_atoms: Sequence[int]) -> float:
+    """Largest distance between any two atoms of the ML region, in nm."""
+    coords = positions_in_nm(positions)[list(ml_atoms)]
+    if coords.shape[0] < 2:
+        return 0.0
+    deltas = coords[:, None, :] - coords[None, :, :]
+    return float(np.sqrt(np.einsum("ijk,ijk->ij", deltas, deltas)).max())
+
+
+def check_region_compactness(
+    system: Any,
+    positions: Any,
+    ml_atoms: Sequence[int],
+    *,
+    strict: bool = False,
+) -> dict[str, Any]:
+    """Refuse an ML region wider than the nonbonded cutoff.
+
+    openmm-ml restores the ML region's own nonbonded interactions, when
+    interpolating back to the classical Hamiltonian, with an explicit bonded
+    term. That term has no cutoff. For electrostatics under PME this is exactly
+    right -- the reciprocal sum covers every image, so removing an intra-region
+    pair removes exactly ``q_i q_j / r`` however far apart it is -- but for
+    Lennard-Jones it is not: the MM system truncates beyond the cutoff and the
+    restoring term does not.
+
+    A compact ligand is unaffected: every pair inside it sits well within the
+    cutoff and the two agree to machine precision. A region spread wider than
+    the cutoff -- a ligand plus binding-site waters on the far side of it --
+    makes ``lambda_interpolate = 0`` disagree with the untouched force field,
+    which is precisely the equality the physics fallback depends on. Measured
+    on this repository's fixture, a ligand plus four scattered waters costs
+    about 0.014 kJ/mol; a real hydration shell would cost more.
+
+    Note also that this restoring term assumes PME. With a plain cutoff or
+    reaction-field NonbondedForce the electrostatic half is wrong too, by
+    kJ/mol rather than by hundredths. Every stage in this pipeline uses PME.
+    """
+    cutoff = nonbonded_cutoff_nm(system)
+    diameter = region_diameter_nm(positions, ml_atoms)
+    report = {
+        "ml_region_diameter_nm": diameter,
+        "nonbonded_cutoff_nm": cutoff,
+        "compact": cutoff is None or diameter <= cutoff,
+    }
+    if report["compact"]:
+        return report
+    message = (
+        f"The ML region spans {diameter:.2f} nm, beyond the {cutoff:.2f} nm "
+        "nonbonded cutoff. openmm-ml restores the region's own Lennard-Jones "
+        "interactions without a cutoff when interpolating back to the "
+        "classical Hamiltonian, so lambda_interpolate=0 will not reproduce the "
+        "force field exactly and the physics fallback is no longer exact. "
+        "Shrink the region (binding-site waters are the usual cause) or accept "
+        "the error deliberately."
+    )
+    if strict:
+        raise MACESurrogateError(message)
+    logger.warning(message)
+    return report
+
+
 def build_ml_potential(config: MACEConfig):
     """Instantiate the openmm-ml ``MLPotential`` this config asks for."""
     try:
@@ -468,6 +549,12 @@ def attach_mace_to_context(
         )
     region = describe_ml_region(topology, ml_atoms)
     validate_ml_region(region, config)
+    compactness = check_region_compactness(
+        live,
+        state.getPositions(asNumpy=True),
+        region.atom_indices,
+        strict=config.strict,
+    )
 
     mixed = create_mace_mixed_system(
         live, topology, region.atom_indices, config=config
@@ -484,6 +571,7 @@ def attach_mace_to_context(
         potential_name=config.potential_name,
         interpolating=bool(config.interpolate),
         backend="openmm-ml",
+        compactness=compactness,
     )
     if config.interpolate:
         _require_parameter(context, INTERPOLATION_PARAMETER)

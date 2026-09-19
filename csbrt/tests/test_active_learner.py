@@ -466,3 +466,23 @@ def test_extract_subsystem_refuses_an_already_mixed_system(built_system, stub_co
     )
     with pytest.raises(ValueError, match="already carries a mixed"):
         extract_subsystem(context.getSystem(), built_system.ligand_atoms)
+
+
+def test_harvest_respects_the_merge_cap(tmp_path):
+    root = tmp_path / "al_buffer"
+    for worker in range(4):
+        buffer = OODBuffer(root / f"ood_w{worker}.npz", source=f"w{worker}")
+        for index in range(5):
+            buffer.add(frame(step=index, sigma=0.1 * (index + 1), source=f"w{worker}"))
+        buffer.save()
+    merged = harvest(root, max_frames=6)
+    assert len(merged) == 6
+    # The cap keeps the most uncertain frames, not the first ones read.
+    assert min(f.uncertainty_force for f in merged) >= 0.4
+
+
+def test_buffer_extend_enforces_the_cap(tmp_path):
+    buffer = OODBuffer(tmp_path / "b.npz", max_frames=2)
+    buffer.extend([frame(step=i, sigma=0.1 * i) for i in range(5)])
+    assert len(buffer) == 2
+    assert buffer.dropped == 3

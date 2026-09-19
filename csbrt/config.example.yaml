@@ -51,6 +51,13 @@ mlff:
   # Loch swaps water identities every GCMC cycle and toggles ghost waters in
   # the live Context. The ML atom list is fixed when the Context is built and
   # cannot follow that, so waters stay out of the ML region by default.
+  #
+  # There is a second reason. openmm-ml restores the ML region's own nonbonded
+  # interactions without a cutoff when interpolating back to classical
+  # physics, so an ML region spread wider than the nonbonded cutoff makes the
+  # fallback stop reproducing the force field exactly. A compact ligand is
+  # exact to 1e-8 kJ/mol; a ligand plus scattered waters is not. The run warns
+  # if you cross that line.
   include_binding_site_waters: false
   binding_site_radius_nm: 1.0
   max_ml_atoms: 250              # past a few hundred the MLFF costs more than MM

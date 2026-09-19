@@ -106,6 +106,25 @@ seconds; the ones that need downloaded MACE weights are gated behind
   box vectors survive; the test suite asserts it.
 - **Size guard:** `max_ml_atoms` (250 by default) refuses a region large enough
   to hit the pure-MLFF scalability trap.
+- **Compactness guard:** the ML region must fit inside the nonbonded cutoff.
+  When openmm-ml interpolates back to the classical Hamiltonian it restores the
+  region's own nonbonded interactions with an explicit bonded term, and that
+  term has no cutoff. Under PME the electrostatic half is exact at any
+  separation — the reciprocal sum covers every image, so removing an
+  intra-region pair removes exactly `q_i q_j / r` — but the Lennard-Jones half
+  is not, because the force field truncates beyond the cutoff and the restoring
+  term does not. A compact ligand never notices: measured on the fixture, the
+  ligand-only classical limit is exact to 4.5e-8 kJ/mol. A ligand plus four
+  scattered waters is out by 0.014 kJ/mol, and a real hydration shell would be
+  worse. `check_region_compactness` warns (or fails, under `strict`) and the
+  measurement is recorded in the stage's checkpoint.
+
+  The same restoring term assumes PME. With a plain cutoff or reaction-field
+  NonbondedForce the electrostatic half is wrong too, by kJ/mol rather than by
+  hundredths — 6.5 kJ/mol for the ligand alone on the fixture. Every stage in
+  this pipeline uses PME (`cutoff_type="pme"` throughout
+  `ev71_loch_common.py`), so this is a constraint to be aware of rather than
+  one to work around.
 
 ### 2.2 Uncertainty monitor (`uq_monitor.py`, `committee.py`)
 
@@ -194,13 +213,21 @@ energy. That equality is what the whole fallback rests on.
 
 | Where | What happens |
 |---|---|
-| `pipeline_utils.add_mace_arguments` | The flags are declared **once**. `mace_command_arguments` renders them back into a command line, so `csbrt` → `run_ev71_pipeline` → `ev71_production` forwards exactly what it was given and a 52-edge network cannot run two versions of the physics. |
+| `mace_pipeline.add_mace_arguments` | The flags are declared **once**. `mace_command_arguments` renders them back into a command line, so `csbrt` → `run_ev71_pipeline` → `ev71_production` forwards exactly what it was given and a 52-edge network cannot run two versions of the physics. |
 | `config.example.yaml` | The `mlff:` block. CLI flags override it; a flag left unset does not touch it. |
-| `ev71_loch_common.attach_mace_surrogate` | Called **before** `sampler.bind_dynamics(dynamics)`. Attaching swaps the Forces in the live System, and Loch resolves the NonbondedForce it toggles ghost waters through when it binds; binding first would leave it mutating an orphaned Force. Afterwards the ghost set and the NonbondedForce count are re-checked and the run aborts if either moved. |
-| `ev71_loch_common.run_with_csv_reports` | Takes an optional `surrogate` and subdivides the MD at its UQ interval. With none it is byte-for-byte what it was, so existing checkpoints still validate. |
+| `mace_pipeline.attach_mace_surrogate` | Called **before** `sampler.bind_dynamics(dynamics)`. Attaching swaps the Forces in the live System, and Loch resolves the NonbondedForce it toggles ghost waters through when it binds; binding first would leave it mutating an orphaned Force. Afterwards the ghost set and the NonbondedForce count are re-checked and the run aborts if either moved. |
+| `mace_pipeline.run_with_surrogate` | Subdivides the MD at the UQ interval and delegates each chunk to the unmodified `ev71_loch_common.run_with_csv_reports`. `md_chunks` guarantees the chunks still land exactly on report boundaries, so the CSV step schedule is identical to a classical run's and existing production checkpoints keep validating. |
 | `run_fep_leg.py` + `mace_surrogate/somd2_hook.py` | SOMD2 validates its own config keys and rejects unknown ones, so the surrogate travels as a JSON sidecar plus a `sitecustomize` on the subprocess `PYTHONPATH`. The hook wraps `sire.system.System.dynamics` so each λ window's Context comes back mixed, and verifies Sire's atom order against the Context's particle order by comparing coordinates under the minimum image convention before attaching anything. |
-| `pipeline_utils.mace_signature` | Returns `None` when the surrogate is off, so a classical run's checkpoint marker is unchanged by the existence of this package. When on, it records the model hash, thresholds and partition — everything that changes the sampled ensemble, and nothing that does not, so the same physics on a different GPU still matches its checkpoint. |
+| `mace_pipeline.mace_signature` | Returns `None` when the surrogate is off, so a classical run's checkpoint marker is unchanged by the existence of this package. When on, it records the model hash, thresholds and partition — everything that changes the sampled ensemble, and nothing that does not, so the same physics on a different GPU still matches its checkpoint. |
 | `fep_edge.slurm`, `submit_fep_edges.sh` | `--with-mace` renders the flag list once on the frontend and exports it, so every array task runs the same physics. |
+
+> **`pipeline_utils.py` and `ev71_loch_common.py` are deliberately untouched.**
+> Both are hashed into the `implementation_signature` of stage checkpoint
+> markers — `pipeline_utils` into every one of them — so adding a single
+> function to either would invalidate every completed equilibration,
+> production, density and GCI checkpoint in a running campaign, whether or not
+> anyone enables the surrogate. Everything lives in `mace_pipeline.py` for that
+> reason, and two tests fail if it creeps back.
 
 ---
 
