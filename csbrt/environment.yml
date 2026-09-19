@@ -25,6 +25,7 @@ name: csbrt
 #     pip install --index-url https://download.pytorch.org/whl/cu126 torch==2.7.1
 #     pip install openfold3 pdb2pqr==3.7.1 propka==3.5.1 \
 #                 git+https://github.com/MobleyLab/slow-rotations.git
+#     pip install "mace-torch>=0.3.10"
 #
 # NOTE: run `mamba env create` with -y in non-interactive contexts; without a TTY
 # it blocks on the "Confirm changes: [Y/n]" prompt and looks like a hung solve.
@@ -46,6 +47,9 @@ dependencies:
   - cuda-nvcc=12.8
   - cuda-nvvm=12.8
   - cuda-cudart-dev=12.8
+
+  # --- MLFF surrogate & active learning ---
+  - openmm-ml
 
   # --- preparation / analysis ---
   - ambertools

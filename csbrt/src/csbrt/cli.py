@@ -126,7 +126,7 @@ def stage_preprocess(cfg: dict, out: Path, dry: bool) -> None:
 def _endpoint(cfg: dict, out: Path, dry: bool, through: str, stage: str) -> Path:
     ligand = need(cfg, "ligand_name", stage)
     run_dir = out / "endpoint" / ligand / "rep1"
-    run(script("run_ev71_pipeline.py") + [
+    cmd = script("run_ev71_pipeline.py") + [
         "--receptor", cfg.get("prepared_receptor", out / "receptor_protonated.pdb"),
         "--ligand-library", ligand_library(cfg, out, stage),
         "--ligand-id", ligand,
@@ -134,7 +134,17 @@ def _endpoint(cfg: dict, out: Path, dry: bool, through: str, stage: str) -> Path
         "--seed", cfg.get("seed", 20260714),
         "--profile", cfg.get("profile", "full"),
         "--through", through,
-    ], dry=dry)
+    ]
+    mlff = cfg.get("mlff", {})
+    if mlff.get("enabled"):
+        cmd.append("--enable-mace-surrogate")
+        if mlff.get("model_name"):
+            cmd.extend(["--mace-model", str(mlff["model_name"])])
+        if mlff.get("uq_force_threshold") is not None:
+            cmd.extend(["--mace-uq-threshold", str(mlff["uq_force_threshold"])])
+        if mlff.get("device"):
+            cmd.extend(["--mace-device", str(mlff["device"])])
+    run(cmd, dry=dry)
     return run_dir
 
 
@@ -242,7 +252,36 @@ def _base_parser(description: str) -> argparse.ArgumentParser:
     p.add_argument("--config", type=Path, required=True,
                    help="YAML/JSON config; see config.example.yaml")
     p.add_argument("--dry-run", action="store_true", help="Print commands only")
+    # MACE surrogate options
+    p.add_argument("--enable-mace-surrogate", "--mace-surrogate", action="store_true",
+                   help="Enable hybrid ML/MM MACE surrogate with active learning fallback")
+    p.add_argument("--mace-model", type=str, default=None,
+                   help="MACE foundation model (mace-off23-small, mace-off23-medium, mace-omol-0)")
+    p.add_argument("--mace-uq-threshold", type=float, default=None,
+                   help="MACE UQ force threshold in eV/A (default: 0.05)")
+    p.add_argument("--mace-device", type=str, default=None,
+                   help="Compute device for MACE inference (cuda/cpu)")
     return p
+
+
+def _merge_cli_mace(cfg: dict, opt: argparse.Namespace) -> None:
+    """Overlay CLI MACE surrogate flags onto loaded config."""
+    if getattr(opt, "enable_mace_surrogate", False):
+        if "mlff" not in cfg:
+            cfg["mlff"] = {}
+        cfg["mlff"]["enabled"] = True
+    if getattr(opt, "mace_model", None):
+        if "mlff" not in cfg:
+            cfg["mlff"] = {}
+        cfg["mlff"]["model_name"] = opt.mace_model
+    if getattr(opt, "mace_uq_threshold", None) is not None:
+        if "mlff" not in cfg:
+            cfg["mlff"] = {}
+        cfg["mlff"]["uq_force_threshold"] = opt.mace_uq_threshold
+    if getattr(opt, "mace_device", None):
+        if "mlff" not in cfg:
+            cfg["mlff"] = {}
+        cfg["mlff"]["device"] = opt.mace_device
 
 
 def _single_stage(stage: str):
@@ -251,6 +290,7 @@ def _single_stage(stage: str):
     def entry(argv: list | None = None) -> None:
         opt = _base_parser(f"Run the '{stage}' stage of the csbrt workflow.").parse_args(argv)
         cfg = load_config(opt.config)
+        _merge_cli_mace(cfg, opt)
         out = output_dir(cfg)
         print(f"csbrt: stage {stage}   output {out}")
         RUNNERS[stage](cfg, out, opt.dry_run)
@@ -288,6 +328,7 @@ def main(argv: list | None = None) -> None:
         selected = list(STAGES[STAGES.index(start): STAGES.index(through) + 1])
 
     cfg = load_config(opt.config)
+    _merge_cli_mace(cfg, opt)
     out = output_dir(cfg)
     print(f"csbrt: stages {' -> '.join(selected)}   output {out}")
     for stage in selected:

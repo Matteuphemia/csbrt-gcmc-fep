@@ -287,3 +287,16 @@ def ghost_history(path: Path) -> dict[str, Any]:
         "maximum_state_zero": max(counts),
         "final_state_zero": counts[-1],
     }
+
+
+def mace_signature(config: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Generate signature for MACE surrogate configuration to detect parameter changes."""
+    if not config or not config.get("enabled", False):
+        return None
+    try:
+        from csbrt.mace_surrogate import MACEConfig
+        m_cfg = MACEConfig.from_dict(config)
+        return m_cfg.compute_signature()
+    except Exception:
+        return config
+

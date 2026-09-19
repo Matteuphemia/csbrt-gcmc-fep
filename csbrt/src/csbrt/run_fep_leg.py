@@ -16,6 +16,7 @@ import yaml
 from pipeline_utils import (
     complete_checkpoint,
     implementation_signature,
+    mace_signature,
     require_file,
     sha256,
     validate_recorded_outputs,
@@ -49,6 +50,15 @@ def options() -> argparse.Namespace:
         "and mixing work scales as num_lambda^2 per cycle, where cycles = "
         "runtime / energy_frequency. Raise energy_frequency for REX runs.",
     )
+    # MACE surrogate options
+    parser.add_argument("--enable-mace-surrogate", "--mace-surrogate", action="store_true",
+                        help="Enable MACE MLFF hybrid surrogate in SOMD2")
+    parser.add_argument("--mace-model", default="mace-off23-small",
+                        help="MACE model identifier")
+    parser.add_argument("--mace-uq-threshold", type=float, default=0.05,
+                        help="UQ force threshold in eV/A")
+    parser.add_argument("--mace-device", default="cuda",
+                        help="MACE inference device")
     return parser.parse_args()
 
 
@@ -154,13 +164,27 @@ def main() -> None:
 
     # --replica-exchange overrides the config. Write the amended config beside the
     # leg so what actually ran is recorded, rather than mutating the shared file.
+    config_amended = False
     if opt.replica_exchange and not config_payload.get("replica_exchange"):
         config_payload["replica_exchange"] = True
+        config_amended = True
+        print("replica exchange enabled", flush=True)
+
+    if opt.enable_mace_surrogate:
+        config_payload["mlff"] = {
+            "enabled": True,
+            "model_name": opt.mace_model,
+            "uq_force_threshold": opt.mace_uq_threshold,
+            "device": opt.mace_device,
+        }
+        config_amended = True
+        print(f"MACE MLFF surrogate enabled (model: {opt.mace_model})", flush=True)
+
+    if config_amended:
         effective = output / "effective_config.yaml"
         effective.write_text(yaml.safe_dump(config_payload, sort_keys=True))
         config = effective
-        print(f"replica exchange enabled; effective config written to {effective}",
-              flush=True)
+        print(f"effective config written to {effective}", flush=True)
 
     marker = output / "fep_leg.complete.json"
     signature = {
@@ -179,6 +203,16 @@ def main() -> None:
         ),
         "gcmc_bulk_sampling_probability": (
             opt.gcmc_bulk_sampling_probability if opt.gcmc_bound else None
+        ),
+        "mace_surrogate": (
+            mace_signature({
+                "enabled": opt.enable_mace_surrogate,
+                "model_name": opt.mace_model,
+                "uq_force_threshold_ev_per_ang": opt.mace_uq_threshold,
+                "device": opt.mace_device,
+            })
+            if opt.enable_mace_surrogate
+            else None
         ),
         "implementation": implementation_signature(
             sources={

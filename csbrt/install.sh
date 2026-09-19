@@ -24,9 +24,9 @@ PY="$HOME/miniforge3/envs/$ENV/bin/python"
 # processes and never co-load. Do NOT "clean up" the conda pytorch: removing it,
 # or deleting $ENV/lib/libtorch*.so / libc10*.so, leaves every import passing and
 # then fails mid-GCMC with `libc10.so: cannot open shared object file`.
-echo "== 2/3 CUDA torch + OpenFold3 + protonation + diagnostics (pip) =="
+echo "== 2/3 CUDA torch + OpenFold3 + protonation + diagnostics + MLFF (pip) =="
 "$PY" -m pip install --no-input --index-url https://download.pytorch.org/whl/cu126 'torch==2.7.1'
-"$PY" -m pip install --no-input openfold3 pdb2pqr==3.7.1 propka==3.5.1
+"$PY" -m pip install --no-input openfold3 pdb2pqr==3.7.1 propka==3.5.1 'mace-torch>=0.3.10'
 
 echo "== 3/3 the csbrt package itself =="
 "$PY" -m pip install --no-input "$HERE"
@@ -44,11 +44,12 @@ for so in libc10.so libtorch.so; do
     }
 done
 "$PY" - <<'CHECK'
-import numpy, torch, sire, loch, somd2, BioSimSpace, openmm, openfold3
+import numpy, torch, sire, loch, somd2, BioSimSpace, openmm, openfold3, openmmml, mace
 if not torch.cuda.is_available():
     raise SystemExit("FAIL: pip torch reports no CUDA device")
 print(f"  numpy {numpy.__version__} | torch {torch.__version__} cuda={torch.cuda.is_available()}")
 print(f"  sire {sire.__version__} loch {loch.__version__} somd2 {somd2.__version__}")
+print(f"  openmmml {openmmml.__name__} | mace {mace.__version__}")
 CHECK
 echo "  conda C++ torch libs present in $ENV_LIB (required by loch GCMC)"
 

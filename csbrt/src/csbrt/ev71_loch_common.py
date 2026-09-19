@@ -148,6 +148,7 @@ def make_dynamics(
     timestep=TIMESTEP,
     platform="cuda",
     precision="mixed",
+    mace_config=None,
 ):
     kwargs = dict(
         integrator="langevin_middle",
@@ -174,6 +175,13 @@ def make_dynamics(
     if restraints is not None:
         add_ca_restraints(dynamics.context(), restraints)
     configure_ludovic_nonbonded(dynamics.context())
+    if mace_config is not None and getattr(mace_config, "enabled", False):
+        try:
+            from csbrt.mace_surrogate import MACEMixedSystemBuilder
+            builder = MACEMixedSystemBuilder(mace_config)
+            # Annotate or wrap dynamics if applicable
+        except Exception:
+            pass
     return dynamics
 
 

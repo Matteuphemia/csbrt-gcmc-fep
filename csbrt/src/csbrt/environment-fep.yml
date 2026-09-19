@@ -15,3 +15,5 @@ dependencies:
   - ambertools
   - rdkit
   - parmed
+  - openmm-ml
+  - pip

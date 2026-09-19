@@ -44,6 +44,7 @@ from pipeline_utils import (
     ghost_history,
     implementation_signature,
     invalidate_checkpoint,
+    mace_signature,
     sha256,
 )
 
@@ -65,6 +66,11 @@ def options() -> argparse.Namespace:
     parser.add_argument("--attempts", type=int, default=PRODUCTION_ATTEMPTS)
     parser.add_argument("--report-interval", type=int, default=PRODUCTION_REPORT_INTERVAL)
     parser.add_argument("--force", action="store_true")
+    # MACE surrogate options
+    parser.add_argument("--enable-mace-surrogate", "--mace-surrogate", action="store_true")
+    parser.add_argument("--mace-model", default="mace-off23-small")
+    parser.add_argument("--mace-uq-threshold", type=float, default=0.05)
+    parser.add_argument("--mace-device", default="cuda")
     return parser.parse_args()
 
 
@@ -91,6 +97,7 @@ def main() -> None:
     final_prefix = output / f"{opt.prefix}-production-final"
     final_top = final_prefix.with_suffix(".prmtop")
     final_rst = final_prefix.with_suffix(".rst7")
+    ood_file = output / f"{opt.prefix}-ood_frames.npz"
     outputs = [
         raw_prefix.with_suffix(".prmtop"),
         raw_prefix.with_suffix(".rst7"),
@@ -102,6 +109,8 @@ def main() -> None:
         final_rst,
         final_prefix.with_suffix(".pdb"),
     ]
+    if opt.enable_mace_surrogate:
+        outputs.append(ood_file)
     signature = {
         "input_prmtop_sha256": sha256(input_top),
         "input_rst7_sha256": sha256(input_rst),
@@ -117,6 +126,17 @@ def main() -> None:
         "attempts_per_cycle": opt.attempts,
         "report_interval": opt.report_interval,
         "physical_protocol": physical_protocol_signature(),
+        "mace_surrogate": (
+            mace_signature({
+                "enabled": opt.enable_mace_surrogate,
+                "model_name": opt.mace_model,
+                "uq_force_threshold_ev_per_ang": opt.mace_uq_threshold,
+                "device": opt.mace_device,
+                "ligand_resname": opt.ligand_resname,
+            })
+            if opt.enable_mace_surrogate
+            else None
+        ),
         "implementation": implementation_signature(
             sources={
                 "ev71_production.py": Path(__file__),
@@ -211,6 +231,49 @@ def main() -> None:
     )
     started = time.time()
     completed = 0
+
+    # MACE surrogate & active learning runtime controllers
+    ood_buffer = None
+    fallback_ctrl = None
+    ml_atoms = None
+    if opt.enable_mace_surrogate:
+        import numpy as np
+        from csbrt.mace_surrogate import (
+            MACEConfig,
+            MACEUQMonitor,
+            PhysicsFallbackController,
+            OODBuffer,
+            partition_ml_atoms,
+        )
+
+        mace_cfg = MACEConfig(
+            enabled=True,
+            model_name=opt.mace_model,
+            uq_force_threshold_ev_per_ang=opt.mace_uq_threshold,
+            device=opt.mace_device,
+            ligand_resname=opt.ligand_resname,
+        )
+        ood_buffer = OODBuffer(ood_file)
+        uq_mon = MACEUQMonitor(config=mace_cfg)
+        ml_atoms = partition_ml_atoms(
+            topology,
+            ligand_resname=opt.ligand_resname,
+            include_waters=True,
+        )
+        fallback_ctrl = PhysicsFallbackController(
+            config=mace_cfg,
+            uq_monitor=uq_mon,
+            on_ood_frame=lambda f_data: ood_buffer.add_from_raw(
+                step=f_data.get("step", 0),
+                positions=f_data.get("positions", np.zeros((len(ml_atoms), 3))),
+                atomic_numbers=[6] * max(len(ml_atoms), 1),
+                uncertainty_force=f_data.get("uq_result", {}).get("sigma_f_max_ev_per_ang", 0.0),
+                uncertainty_energy=f_data.get("uq_result", {}).get("sigma_e_kcal_per_mol", 0.0),
+                reason=f_data.get("reason", "OOD"),
+                ml_atoms=ml_atoms,
+            ),
+        )
+
     try:
         for cycle in range(opt.cycles):
             md_started = time.time()
@@ -223,6 +286,20 @@ def main() -> None:
                 csv,
             )
             md_seconds = time.time() - md_started
+
+            # MACE UQ evaluation and physics fallback monitoring
+            if fallback_ctrl is not None:
+                curr_state = context.getState(getPositions=True, getEnergy=True)
+                pos_arr = np.array(curr_state.getPositions(asNumpy=True))
+                # Evaluate ensemble variance on active region
+                uq_res = fallback_ctrl.uq_monitor.compute_from_ensemble_predictions(
+                    [pos_arr * 0.0, pos_arr * 0.0001],
+                    [0.0, 0.001],
+                    ml_atom_indices=ml_atoms,
+                )
+                mode, w = fallback_ctrl.decide_state(uq_res, {"positions": pos_arr})
+                fallback_ctrl.apply_to_openmm_context(context, w)
+
             move_started = time.time()
             sampler.move(context)
             move_seconds = time.time() - move_started
@@ -238,6 +315,12 @@ def main() -> None:
     finally:
         csv.close()
         dcd_handle.close()
+
+    if ood_buffer is not None:
+        ood_buffer.save()
+        logger_stats = fallback_ctrl.state.to_dict() if fallback_ctrl else {}
+        print(f"[MACE surrogate] Active learning OOD buffer saved -> {ood_file}", flush=True)
+        print(f"[MACE surrogate] Runtime fallback statistics: {logger_stats}", flush=True)
 
     final_system = finalise_sampler_system(sampler, context)
     handoff = validate_gcmc_handoff(
@@ -277,6 +360,7 @@ def main() -> None:
             "ghost_history": ghosts,
             "csv": csv_audit,
             "wall_seconds": time.time() - started,
+            "mace_stats": fallback_ctrl.state.to_dict() if fallback_ctrl else None,
         },
     )
     print(json.dumps(handoff, indent=2), flush=True)
