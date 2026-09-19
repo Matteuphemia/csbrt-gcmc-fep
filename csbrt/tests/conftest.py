@@ -52,7 +52,7 @@ def built_system_no_ghost():
 # --------------------------------------------------------------------------- stub ML
 
 
-def register_stub_potential(name: str = STUB_POTENTIAL_NAME, strength: float = 1000.0):
+def register_stub_potential(name: str = STUB_POTENTIAL_NAME, strength: float = 200000.0):
     """Register a trivial openmm-ml potential so mixed systems can be built.
 
     openmm-ml's own ``registerImplFactory`` hook is the supported extension
@@ -67,19 +67,53 @@ def register_stub_potential(name: str = STUB_POTENTIAL_NAME, strength: float = 1
             self.name = name
 
         def addForces(self, topology, system, atoms, forceGroup, **args):
-            # A harmonic tether on each ML atom: cheap, analytic, and non-zero
-            # so a test can tell the ML and MM Hamiltonians apart by energy.
-            force = openmm.CustomExternalForce("k*((x-x0)^2+(y-y0)^2+(z-z0)^2)")
-            force.addGlobalParameter("k", strength)
-            for axis in ("x0", "y0", "z0"):
-                force.addPerParticleParameter(axis)
-            selection = (
-                range(system.getNumParticles()) if atoms is None else atoms
+            # Stand in for what an MLFF supplies: the ML region's whole
+            # intramolecular energy. The mechanical embedding removes the MM
+            # bonded terms inside the region *and* zeroes its internal
+            # nonbonded interactions, so a stand-in that only replaces the
+            # bonds leaves nothing holding the atoms apart and the region
+            # collapses under minimisation. Harmonic bonds plus a purely
+            # repulsive term over every other in-region pair is the smallest
+            # thing that behaves like a molecule.
+            #
+            # Both are CustomBondForce: openmm-ml's interpolation refuses a
+            # CustomNonbondedForce, and over 40-250 atoms an explicit pair list
+            # is cheap anyway.
+            selection = sorted(
+                set(range(system.getNumParticles()))
+                if atoms is None
+                else {int(i) for i in atoms}
             )
-            for index in selection:
-                force.addParticle(int(index), [0.0, 0.0, 0.0])
-            force.setForceGroup(forceGroup)
-            system.addForce(force)
+            in_region = set(selection)
+
+            bonded = openmm.CustomBondForce("0.5*kml*(r-r0ml)^2")
+            bonded.addGlobalParameter("kml", strength)
+            bonded.addGlobalParameter("r0ml", 0.145)
+            neighbours: dict[int, set[int]] = {i: set() for i in selection}
+            for bond in topology.bonds():
+                first, second = int(bond[0].index), int(bond[1].index)
+                if first in in_region and second in in_region:
+                    bonded.addBond(first, second, [])
+                    neighbours[first].add(second)
+                    neighbours[second].add(first)
+            bonded.setForceGroup(forceGroup)
+            system.addForce(bonded)
+
+            repulsive = openmm.CustomBondForce("epsml*(sigml/r)^12")
+            repulsive.addGlobalParameter("epsml", 1.0)
+            repulsive.addGlobalParameter("sigml", 0.24)
+            for index, first in enumerate(selection):
+                one_three = {
+                    third
+                    for second in neighbours[first]
+                    for third in neighbours[second]
+                }
+                excluded = neighbours[first] | one_three | {first}
+                for second in selection[:index]:
+                    if second not in excluded:
+                        repulsive.addBond(first, second, [])
+            repulsive.setForceGroup(forceGroup)
+            system.addForce(repulsive)
 
         def getMLLongRange(self):
             # MACE-OFF is short-range; say the same so the periodic mechanical

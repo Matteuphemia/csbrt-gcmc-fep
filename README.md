@@ -24,6 +24,22 @@ See [`csbrt/README.md`](csbrt/README.md) for stage contracts, the environment
 constraints (why conda is mandatory, why the CUDA toolchain is pinned whole, why
 the predictor is OpenFold3), and the diagnostics worth running.
 
+## MACE ML/MM surrogate
+
+The perturbable ligand can optionally be evaluated with a MACE foundation model
+while the protein and bulk solvent stay classical, with uncertainty monitoring
+and an automatic fallback to the classical Hamiltonian
+([`csbrt/src/csbrt/mace_surrogate/`](csbrt/src/csbrt/mace_surrogate/)). It is off
+by default.
+
+- [`docs/mlff_active_learning_architecture.md`](docs/mlff_active_learning_architecture.md)
+  — what was built, how it attaches to Loch and SOMD2, and the validation
+  checklist before trusting a ΔΔG from it.
+- [`docs/mlff_throughput_expectations.md`](docs/mlff_throughput_expectations.md)
+  — **read first.** Hybrid ML/MM is about an order of magnitude *slower* than
+  the classical pipeline, not faster; what it buys instead, and where a 50%
+  time reduction could actually come from.
+
 ## Two structure-prediction tracks
 
 `protein_prep/` keeps both, and neither replaces the other: Boltz-2 pins

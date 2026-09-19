@@ -148,6 +148,70 @@ the record, but only the template localises the pose. **If you are migrating fro
 the Boltz workflow, re-validate the grafted loop against the crystal** before
 trusting downstream results.
 
+## MACE ML/MM surrogate (optional)
+
+The perturbable ligand can be evaluated with a MACE foundation model while the
+protein and bulk solvent stay on Amber ff14SB / TIP3P, with a committee
+watching the prediction uncertainty and an automatic fallback to the classical
+Hamiltonian for any frame the model is not confident about. It is off unless
+asked for.
+
+```bash
+csbrt-mace-preflight --device cuda                 # check the node, in seconds
+csbrt-mace-benchmark --prmtop X.prmtop --rst7 X.rst7   # measure the cost first
+
+csbrt --from equilibrate --through gcmc --config run.yaml --enable-mace-surrogate
+./scripts/submit_fep_edges.sh --manifest fep_manifest.tsv --batch 24 --with-mace
+```
+
+Settings live in the config's `mlff:` block (see `config.example.yaml`); CLI
+flags override it.
+
+**Read `docs/mlff_throughput_expectations.md` before planning around it.** A
+hybrid ML/MM system pays nearly the whole classical cost *plus* the neural
+network, so it is roughly an order of magnitude **slower** than the classical
+simulation, not faster — the throughput table in
+`docs/wang2024_design_space_report.md` says so directly, and
+`csbrt-mace-benchmark` will say so about your system. What it buys is
+quantum-quality ligand internal energetics: torsion profiles and
+intramolecular strain in the perturbable region, which is where GAFF2 is
+weakest and where alchemical FEP is most sensitive. Note also that
+`mace-off23-*` is academic-use-only under the ASL.
+
+Before trusting a ΔΔG from a surrogate run: preflight on the real node, check
+NVE drift against the classical baseline, and run at least three benchmark
+edges both ways. `docs/mlff_active_learning_architecture.md` section 5 is the
+checklist.
+
+Between generations, close the active-learning loop on the frames the fallback
+harvested:
+
+```bash
+csbrt-mace-al report   --buffer-dir RUN/al_buffer
+csbrt-mace-al harvest  --buffer-dir RUN/al_buffer --output frames.npz
+csbrt-mace-al label    --frames frames.npz --labeller command \
+                       --command "my_qm_singlepoint {xyz}" --output labelled.npz
+csbrt-mace-al finetune --frames labelled.npz --generation 2 --seeds 2
+```
+
+`--seeds 2` is not optional if you want uncertainty quantification: a force
+variance needs two or more models, and MACE refuses a committee whose members
+have different cutoff radii, so the foundation releases cannot be paired with
+each other. Until a campaign has produced its own committee, the cheap geometry
+guard is the only out-of-distribution detector the runtime has.
+
+## Tests
+
+```bash
+pip install pytest
+pytest csbrt/tests -q                      # ~180 tests, seconds, no GPU needed
+CSBRT_MACE_MODEL_TESTS=1 pytest csbrt/tests -q   # + real MACE-OFF weights
+```
+
+The suite runs against real OpenMM with a registered stub ML potential, so the
+mixed-system construction, the in-place Context swap and the
+`lambda_interpolate` switch are all exercised for real without a GPU.
+
 ## Diagnostics worth running
 
 - **Window overlap** (in each edge's `analysis.json`): near-zero adjacent-window
