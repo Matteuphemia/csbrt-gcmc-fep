@@ -26,6 +26,7 @@ csbrt-analysis    = "csbrt.cli:analysis"
 csbrt-mace-preflight = "csbrt.mace_preflight:main"
 csbrt-mace-benchmark = "csbrt.mace_benchmark:main"
 csbrt-mace-al        = "csbrt.mace_active_learning:main"
+csbrt-compare-test   = "csbrt.compare_tests.run_all_comparisons:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
