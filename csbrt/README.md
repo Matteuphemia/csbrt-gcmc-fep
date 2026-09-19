@@ -202,9 +202,11 @@ guard is the only out-of-distribution detector the runtime has.
 
 ## Tests
 
+From the repository root:
+
 ```bash
 pip install pytest
-pytest csbrt/tests -q                      # ~180 tests, seconds, no GPU needed
+pytest csbrt/tests -q                            # 330 tests, ~11 s, no GPU
 CSBRT_MACE_MODEL_TESTS=1 pytest csbrt/tests -q   # + real MACE-OFF weights
 ```
 
