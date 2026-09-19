@@ -125,3 +125,4 @@ Outputs are written to:
 - `demo/data/comparison_results.json`: Full machine-readable data bundle.
 - `demo/data/benchmark_summary.md`: Executive markdown scorecard.
 - `demo/index.html`: Interactive visualization and simulator dashboard.
+

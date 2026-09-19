@@ -1,0 +1,133 @@
+{
+  "checks": [
+    {
+      "check": "import openmm",
+      "detail": "version 8.6.1.dev-b399af4",
+      "status": "ok"
+    },
+    {
+      "check": "import openmmml",
+      "detail": "present (no version string)",
+      "status": "ok"
+    },
+    {
+      "check": "import torch",
+      "detail": "version 2.7.1+cu126",
+      "status": "ok"
+    },
+    {
+      "check": "import mace",
+      "detail": "version 0.3.16",
+      "status": "ok"
+    },
+    {
+      "check": "import numpy",
+      "detail": "version 2.4.6",
+      "status": "ok"
+    },
+    {
+      "check": "import ase",
+      "detail": "version 3.29.0",
+      "status": "ok"
+    },
+    {
+      "check": "openmm platforms",
+      "detail": "Reference, CPU (no CUDA platform: MD will be slow)",
+      "platforms": [
+        "Reference",
+        "CPU"
+      ],
+      "status": "warn"
+    },
+    {
+      "check": "torch cuda",
+      "detail": "torch.cuda.is_available()=True, 1 device(s), 12.6",
+      "status": "ok"
+    },
+    {
+      "check": "device agreement",
+      "detail": "OpenMM CUDA platform present=False but torch CUDA=True; the ML and MM halves would run on different devices",
+      "status": "warn"
+    },
+    {
+      "check": "geometry guard",
+      "detail": "relaxed pose accepted, clashed and torn poses both intercepted",
+      "status": "ok"
+    },
+    {
+      "check": "ml potential",
+      "detail": "mace-off23-small constructed in 0.0 s",
+      "status": "ok"
+    },
+    {
+      "build_seconds": 5.789375059999998,
+      "check": "mixed system",
+      "detail": "9 ML atoms, built and attached in 5.8 s",
+      "ml_atoms": 9,
+      "status": "ok"
+    },
+    {
+      "check": "classical limit",
+      "classical_kj_per_mol": 1305.936995415752,
+      "detail": "lambda_interpolate=0 gives 1305.936995 kJ/mol against the untouched force field's 1305.936995 (difference 4.52e-08); the fallback is only correct if these agree",
+      "interpolated_kj_per_mol": 1305.9369954609217,
+      "status": "ok"
+    },
+    {
+      "check": "surrogate energy",
+      "detail": "lambda_interpolate=1 gives -3270.710 kJ/mol",
+      "status": "ok",
+      "surrogate_kj_per_mol": -3270.710025383928
+    },
+    {
+      "check": "hamiltonian switch",
+      "detail": "median 0.0005 ms, max 0.0197 ms over 64 switches (a Context rebuild is 200-500 ms)",
+      "max_ms": 0.01969699999904151,
+      "mean_ms": 0.0009257656247152468,
+      "median_ms": 0.0005110000032004791,
+      "samples": 64,
+      "status": "ok"
+    },
+    {
+      "check": "committee",
+      "detail": "0 model(s) configured; a force-variance estimate needs two or more. The geometry guard will be the only out-of-distribution detector. Produce a committee with csbrt-mace-al.",
+      "status": "warn"
+    }
+  ],
+  "config": {
+    "active_learning": true,
+    "binding_site_radius_nm": 1.0,
+    "committee_model_paths": [],
+    "custom_params": {},
+    "device": "cuda",
+    "embedding": "mechanical",
+    "enabled": true,
+    "fallback_abort_fraction": 0.5,
+    "fallback_steps": 50,
+    "geometry_guard": true,
+    "geometry_max_bond_scale": 1.6,
+    "geometry_min_distance_ang": 0.7,
+    "include_binding_site_waters": false,
+    "interpolate": true,
+    "ligand_resname": "LIG",
+    "max_ml_atoms": 250,
+    "ml_force_group": 30,
+    "model_name": "mace-off23-small",
+    "model_path": null,
+    "ood_buffer_dir": "al_buffer",
+    "ood_max_frames": 2000,
+    "ood_rmsd_cutoff_ang": 0.5,
+    "precision": "single",
+    "remove_constraints": true,
+    "return_energy_type": "interaction_energy",
+    "strict": false,
+    "uq_enabled": true,
+    "uq_energy_threshold_kcal_per_mol": 1.0,
+    "uq_force_threshold_ev_per_ang": 0.05,
+    "uq_interval_steps": 100
+  },
+  "failures": 0,
+  "ok": true,
+  "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+  "python": "3.12.14"
+}

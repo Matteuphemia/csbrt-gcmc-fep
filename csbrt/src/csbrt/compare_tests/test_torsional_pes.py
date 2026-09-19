@@ -91,3 +91,4 @@ if __name__ == "__main__":
     import json
     res = compute_dihedral_pes_scan()
     print(json.dumps(res["summary"], indent=2))
+

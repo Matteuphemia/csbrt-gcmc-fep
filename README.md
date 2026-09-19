@@ -31,6 +31,9 @@ A comprehensive verification and interactive demonstration suite comparing the *
 - **[Interactive VC Demo Dashboard](demo/index.html):** Zero-install, rich interactive web dashboard with live KPI badges, interactive AI safety net simulator, 3D molecular pocket explorer, benchmark charts, and enterprise ROI calculator. Open directly in any browser: `demo/index.html`.
 - **[Series A/B Investor Brief](VC_INVESTOR_BRIEF.md):** Executive memorandum covering market problem, deep-tech breakthrough, unit economics, and competitive moat.
 - **[Technical Verification & Benchmarking Report](BENCHMARK_AND_VERIFICATION_REPORT.md):** Diligence report detailing all 6 testing angles (Hamiltonian parity, torsional PES, UQ interception, active learning loop, free energy accuracy, and 52.4% speedup pathway).
+- **[Migration & Usage Guide](docs/MIGRATION_AND_USAGE_GUIDE.md):** Detailed guide on running on local GPU/cluster, command line options, and full architectural diff vs upstream `BenCree/csbrt-gcmc-fep`.
+- **[Data Provenance & Diligence Audit](docs/DATA_PROVENANCE_AND_AUDIT.md):** Strict claim-by-claim audit table tracing every number to local RTX 3070 measurements (`preflight_gpu_output.json`, `mace_benchmark.json`), repo datasets, or literature citations (zero made-up numbers).
+- **[Competitive Landscape & Technology Roadmap](docs/COMPETITIVE_LANDSCAPE_AND_FUTURE_ROADMAP.md):** SOTA benchmark comparison (OpenMM-ML, MACE-OFF, Schrödinger FEP+), engineering levers (MTS/RESPA, $\Delta$-ML), and expansion into metalloproteins and covalent inhibitors.
 - **[Pitch Deck Visual Assets](assets/figures/):** 5 publication-grade, non-science-friendly vector SVG diagrams (`01_drug_discovery_bottleneck.svg`, `02_quantum_microscope_hybrid_architecture.svg`, etc.).
 - **Run the Comparative Verification Suite:**
   ```bash

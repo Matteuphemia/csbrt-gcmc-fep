@@ -111,3 +111,4 @@ if __name__ == "__main__":
     import json
     res = run_ddg_accuracy_benchmark()
     print(json.dumps(res["improvements"], indent=2))
+

@@ -1,0 +1,71 @@
+{
+  "classical": {
+    "ns_per_day": 21.169223423932447,
+    "seconds": 0.8162793529999988
+  },
+  "config": {
+    "active_learning": true,
+    "binding_site_radius_nm": 1.0,
+    "committee_model_paths": [],
+    "custom_params": {},
+    "device": "cuda",
+    "embedding": "mechanical",
+    "enabled": true,
+    "fallback_abort_fraction": 0.5,
+    "fallback_steps": 50,
+    "geometry_guard": true,
+    "geometry_max_bond_scale": 1.6,
+    "geometry_min_distance_ang": 0.7,
+    "include_binding_site_waters": false,
+    "interpolate": true,
+    "ligand_resname": "LIG",
+    "max_ml_atoms": 250,
+    "ml_force_group": 30,
+    "model_name": "mace-off23-small",
+    "model_path": null,
+    "ood_buffer_dir": "al_buffer",
+    "ood_max_frames": 2000,
+    "ood_rmsd_cutoff_ang": 0.5,
+    "precision": "single",
+    "remove_constraints": true,
+    "return_energy_type": "interaction_energy",
+    "strict": false,
+    "uq_enabled": true,
+    "uq_energy_threshold_kcal_per_mol": 1.0,
+    "uq_force_threshold_ev_per_ang": 0.05,
+    "uq_interval_steps": 100
+  },
+  "device": "cuda",
+  "mixed_lambda0": {
+    "ns_per_day": 5.601578685400273,
+    "seconds": 3.0848446429999967
+  },
+  "mixed_lambda1": {
+    "ns_per_day": 5.443553168040025,
+    "seconds": 3.1743972119999952
+  },
+  "mixed_system_build_seconds": 5.616946122000002,
+  "ml_region": {
+    "ligand_atom_count": 9,
+    "ml_atom_count": 9,
+    "residues": {
+      "LIG": 1
+    },
+    "unsupported_elements": [],
+    "water_atom_count": 0
+  },
+  "particles": 26,
+  "platform": "CPU",
+  "speedup_vs_classical": 0.2571446792840744,
+  "steps": 100,
+  "surrogate_total": {
+    "ns_per_day": 5.443553168040025,
+    "seconds": 3.1743972119999952
+  },
+  "timestep_fs": 2.0,
+  "uq": {
+    "configured": false,
+    "seconds_over_run": 0.0,
+    "seconds_per_evaluation": 0.0
+  }
+}

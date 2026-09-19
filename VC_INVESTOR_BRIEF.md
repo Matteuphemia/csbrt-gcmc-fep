@@ -83,3 +83,4 @@ python csbrt/src/csbrt/compare_tests/run_all_comparisons.py --output-dir demo/da
 - **Q4 2026 (TRL 7):** Enterprise multi-tenant Slurm orchestration across 500+ A100/H100 clusters with automated OOD buffer aggregation.
 - **Q1 2027 (TRL 8):** Multi-target production deployment across 5 Tier-1 pharmaceutical co-development partnerships.
 - **Series A Financing Objective:** \$15M to expand proprietary active learning datasets, recruit key ML-physics engineering talent, and secure dedicated GPU compute clusters.
+
