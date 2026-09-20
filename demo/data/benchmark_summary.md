@@ -1,8 +1,8 @@
 # Benchmark Summary: Classical MM vs MACE ML/MM (measured)
 
-**Generated:** 2026-09-20T11:18:35.939998+00:00  
-**Duration:** 39.98 s  
-**Angles measured:** 6 / 6  (**0 not_run**, see notes)
+**Generated:** 2026-09-20T12:02:17.709528+00:00  
+**Duration:** 40.02 s  
+**Angles measured:** 6 / 6 fully verified  
 
 ## Environment (provenance)
 
@@ -10,8 +10,8 @@
 - Python 3.11.1, numpy 2.4.6, OpenMM 8.6.1, torch 2.11.0+cu128 (CUDA 12.8, available=True)
 - GPU: NVIDIA GeForce RTX 3070
 - OpenMM platforms: Reference, CPU, OpenCL, CPU, CUDA, OpenCL
-- git commit: `f41080d88367d4f9c4049c93620e420f0052e164`
-- GPU during run: peak utilisation **73%**, peak memory **2615 MiB** over 57 samples
+- git commit: `fab6d4e92a5902c0854f57740e10504276adbf09`
+- GPU during run: peak utilisation **45%**, peak memory **2674 MiB** over 58 samples
 - Model `mace-off23-small`: sha256 `165cce4cfec5a34b…` (7347350 bytes)
 - Model `mace-off23-medium`: sha256 `4842c52ad210d6e1…` (18350596 bytes)
 - Model `mace-off23-large`: sha256 `a29e397dbf3e7a24…` (55492786 bytes)
@@ -20,12 +20,12 @@
 
 | Angle | Status | Key measured quantity |
 | :--- | :--- | :--- |
-| 1. Hamiltonian parity | passed (CUDA) | classical-limit ΔE = 3.30e-03 kJ/mol; switch median 2.40 µs; surrogate NVE drift 0.841 kT/dof/ns |
+| 1. Hamiltonian parity | passed (CUDA) | classical-limit ΔE = 3.30e-03 kJ/mol; switch median 2.40 µs; surrogate NVE drift 0.746 kT/dof/ns |
 | 2. Torsional PES | passed | DFT barrier 2.76 kcal/mol; MACE barrier 2.65 (error 0.10); MM 2.96 (error 0.20); MACE–DFT RMSD 0.070 kcal/mol |
 | 3. UQ interception | passed | sensitivity 100.0%, 0 false negatives; in-dist mean σF 0.1853 eV/Å |
 | 4. Active learning | passed | 300 frames → 3 centroids (99.0% compression); QM-labeled 3 centroids; generational fallback contraction **25.0×** |
 | 5. DDG accuracy | passed | 32 compounds (74 edges); RMSE 1.23 → 0.91 kcal/mol (25.5% reduction); Pearson r 0.084 → 0.639 |
-| 6. Throughput | passed (CUDA) | fixture classical 2.3 ns/day, hybrid 2.2 ns/day; solvated (58,893 atoms) 209.6 ns/day; campaign wall-clock 357.2 → 171.5 GPU-h (52.0% speedup) |
+| 6. Throughput | passed (CUDA) | fixture classical 2.3 ns/day, hybrid 2.2 ns/day; solvated (58,893 atoms) 181.9 ns/day; campaign wall-clock 411.7 → 197.6 GPU-h (52.0% speedup) |
 
 ## Summary of Unblocked & Measured Claims
 

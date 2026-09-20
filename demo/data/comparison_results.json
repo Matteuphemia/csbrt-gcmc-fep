@@ -1,6 +1,6 @@
 {
-  "timestamp_utc": "2026-09-20T11:18:35.939998+00:00",
-  "elapsed_seconds": 39.97938129998511,
+  "timestamp_utc": "2026-09-20T12:02:17.709528+00:00",
+  "elapsed_seconds": 40.02268429999822,
   "provenance": {
     "hostname": "DESKTOP-QH7HK4N",
     "os": "Windows-10-10.0.26200-SP0",
@@ -19,7 +19,7 @@
     "torch_cuda": "12.8",
     "cuda_available": true,
     "gpu": "NVIDIA GeForce RTX 3070",
-    "git_commit": "f41080d88367d4f9c4049c93620e420f0052e164",
+    "git_commit": "fab6d4e92a5902c0854f57740e10504276adbf09",
     "models": {
       "mace-off23-small": {
         "path": "C:\\Users\\maff\\.cache\\mace\\MACE-OFF23_small.model",
@@ -42,301 +42,306 @@
   },
   "gpu_telemetry": {
     "available": true,
-    "samples": 57,
+    "samples": 58,
     "interval_s": 0.5,
     "baseline_before_run": {
-      "util_pct": 23.0,
-      "mem_mib": 1999.0
+      "util_pct": 22.0,
+      "mem_mib": 2182.0
     },
-    "util_pct_max": 73.0,
-    "util_pct_mean": 25.596491228070175,
-    "mem_mib_max": 2615.0,
-    "mem_mib_min": 1998.0,
+    "util_pct_max": 45.0,
+    "util_pct_mean": 23.948275862068964,
+    "mem_mib_max": 2674.0,
+    "mem_mib_min": 2179.0,
     "trace": [
       {
-        "t_s": 0.15,
-        "util_pct": 24.0,
-        "mem_mib": 1999.0
-      },
-      {
-        "t_s": 0.73,
-        "util_pct": 11.0,
-        "mem_mib": 1998.0
-      },
-      {
-        "t_s": 1.31,
-        "util_pct": 24.0,
-        "mem_mib": 2007.0
-      },
-      {
-        "t_s": 1.94,
+        "t_s": 0.16,
         "util_pct": 22.0,
-        "mem_mib": 2010.0
+        "mem_mib": 2181.0
       },
       {
-        "t_s": 2.52,
-        "util_pct": 25.0,
-        "mem_mib": 2010.0
+        "t_s": 0.75,
+        "util_pct": 18.0,
+        "mem_mib": 2181.0
       },
       {
-        "t_s": 6.64,
-        "util_pct": 1.0,
-        "mem_mib": 2194.0
+        "t_s": 1.34,
+        "util_pct": 28.0,
+        "mem_mib": 2181.0
       },
       {
-        "t_s": 7.22,
-        "util_pct": 3.0,
-        "mem_mib": 2392.0
-      },
-      {
-        "t_s": 7.79,
-        "util_pct": 2.0,
-        "mem_mib": 2412.0
-      },
-      {
-        "t_s": 8.37,
-        "util_pct": 3.0,
-        "mem_mib": 2412.0
-      },
-      {
-        "t_s": 8.94,
-        "util_pct": 17.0,
-        "mem_mib": 2412.0
-      },
-      {
-        "t_s": 9.52,
-        "util_pct": 15.0,
-        "mem_mib": 2410.0
-      },
-      {
-        "t_s": 10.09,
-        "util_pct": 16.0,
-        "mem_mib": 2410.0
-      },
-      {
-        "t_s": 10.67,
-        "util_pct": 16.0,
-        "mem_mib": 2409.0
-      },
-      {
-        "t_s": 11.26,
-        "util_pct": 35.0,
-        "mem_mib": 2392.0
-      },
-      {
-        "t_s": 11.85,
-        "util_pct": 35.0,
-        "mem_mib": 2408.0
-      },
-      {
-        "t_s": 12.43,
-        "util_pct": 35.0,
-        "mem_mib": 2408.0
-      },
-      {
-        "t_s": 13.0,
-        "util_pct": 37.0,
-        "mem_mib": 2406.0
-      },
-      {
-        "t_s": 13.58,
-        "util_pct": 35.0,
-        "mem_mib": 2406.0
-      },
-      {
-        "t_s": 14.15,
-        "util_pct": 2.0,
-        "mem_mib": 2406.0
-      },
-      {
-        "t_s": 14.73,
-        "util_pct": 4.0,
-        "mem_mib": 2410.0
-      },
-      {
-        "t_s": 15.31,
-        "util_pct": 3.0,
-        "mem_mib": 2390.0
-      },
-      {
-        "t_s": 15.88,
-        "util_pct": 49.0,
-        "mem_mib": 2411.0
-      },
-      {
-        "t_s": 16.46,
-        "util_pct": 43.0,
-        "mem_mib": 2411.0
-      },
-      {
-        "t_s": 17.03,
-        "util_pct": 41.0,
-        "mem_mib": 2410.0
-      },
-      {
-        "t_s": 17.61,
-        "util_pct": 37.0,
-        "mem_mib": 2416.0
-      },
-      {
-        "t_s": 18.2,
+        "t_s": 1.96,
         "util_pct": 38.0,
-        "mem_mib": 2416.0
+        "mem_mib": 2181.0
       },
       {
-        "t_s": 18.78,
-        "util_pct": 40.0,
-        "mem_mib": 2409.0
+        "t_s": 2.54,
+        "util_pct": 29.0,
+        "mem_mib": 2179.0
       },
       {
-        "t_s": 19.35,
-        "util_pct": 37.0,
-        "mem_mib": 2389.0
+        "t_s": 4.9,
+        "util_pct": 5.0,
+        "mem_mib": 2359.0
       },
       {
-        "t_s": 19.93,
-        "util_pct": 37.0,
-        "mem_mib": 2409.0
+        "t_s": 6.83,
+        "util_pct": 5.0,
+        "mem_mib": 2512.0
       },
       {
-        "t_s": 20.5,
-        "util_pct": 37.0,
-        "mem_mib": 2404.0
+        "t_s": 7.41,
+        "util_pct": 7.0,
+        "mem_mib": 2594.0
       },
       {
-        "t_s": 21.09,
-        "util_pct": 39.0,
-        "mem_mib": 2263.0
-      },
-      {
-        "t_s": 21.67,
-        "util_pct": 23.0,
-        "mem_mib": 2245.0
-      },
-      {
-        "t_s": 22.26,
-        "util_pct": 73.0,
-        "mem_mib": 2265.0
-      },
-      {
-        "t_s": 22.83,
-        "util_pct": 16.0,
-        "mem_mib": 2349.0
-      },
-      {
-        "t_s": 23.43,
-        "util_pct": 61.0,
-        "mem_mib": 2390.0
-      },
-      {
-        "t_s": 25.72,
-        "util_pct": 3.0,
-        "mem_mib": 2477.0
-      },
-      {
-        "t_s": 27.69,
-        "util_pct": 2.0,
+        "t_s": 7.98,
+        "util_pct": 6.0,
         "mem_mib": 2596.0
       },
       {
-        "t_s": 28.26,
-        "util_pct": 15.0,
+        "t_s": 8.56,
+        "util_pct": 20.0,
+        "mem_mib": 2596.0
+      },
+      {
+        "t_s": 9.14,
+        "util_pct": 22.0,
+        "mem_mib": 2597.0
+      },
+      {
+        "t_s": 9.71,
+        "util_pct": 20.0,
+        "mem_mib": 2598.0
+      },
+      {
+        "t_s": 10.29,
+        "util_pct": 21.0,
+        "mem_mib": 2598.0
+      },
+      {
+        "t_s": 10.86,
+        "util_pct": 21.0,
+        "mem_mib": 2600.0
+      },
+      {
+        "t_s": 11.44,
+        "util_pct": 21.0,
+        "mem_mib": 2600.0
+      },
+      {
+        "t_s": 12.01,
+        "util_pct": 43.0,
+        "mem_mib": 2602.0
+      },
+      {
+        "t_s": 12.59,
+        "util_pct": 33.0,
+        "mem_mib": 2602.0
+      },
+      {
+        "t_s": 13.16,
+        "util_pct": 28.0,
+        "mem_mib": 2603.0
+      },
+      {
+        "t_s": 13.74,
+        "util_pct": 45.0,
+        "mem_mib": 2611.0
+      },
+      {
+        "t_s": 14.33,
+        "util_pct": 28.0,
+        "mem_mib": 2613.0
+      },
+      {
+        "t_s": 14.91,
+        "util_pct": 7.0,
+        "mem_mib": 2613.0
+      },
+      {
+        "t_s": 15.48,
+        "util_pct": 7.0,
+        "mem_mib": 2607.0
+      },
+      {
+        "t_s": 16.07,
+        "util_pct": 28.0,
         "mem_mib": 2615.0
       },
       {
-        "t_s": 28.84,
-        "util_pct": 15.0,
-        "mem_mib": 2573.0
-      },
-      {
-        "t_s": 29.42,
-        "util_pct": 18.0,
-        "mem_mib": 2541.0
-      },
-      {
-        "t_s": 29.99,
-        "util_pct": 17.0,
-        "mem_mib": 2511.0
-      },
-      {
-        "t_s": 30.57,
-        "util_pct": 16.0,
-        "mem_mib": 2511.0
-      },
-      {
-        "t_s": 31.14,
-        "util_pct": 17.0,
-        "mem_mib": 2511.0
-      },
-      {
-        "t_s": 31.72,
-        "util_pct": 16.0,
-        "mem_mib": 2511.0
-      },
-      {
-        "t_s": 32.29,
+        "t_s": 16.65,
         "util_pct": 26.0,
-        "mem_mib": 2511.0
+        "mem_mib": 2616.0
       },
       {
-        "t_s": 32.87,
-        "util_pct": 36.0,
-        "mem_mib": 2511.0
+        "t_s": 17.22,
+        "util_pct": 27.0,
+        "mem_mib": 2616.0
       },
       {
-        "t_s": 33.44,
-        "util_pct": 37.0,
-        "mem_mib": 2497.0
+        "t_s": 17.8,
+        "util_pct": 29.0,
+        "mem_mib": 2616.0
       },
       {
-        "t_s": 34.02,
-        "util_pct": 39.0,
-        "mem_mib": 2497.0
+        "t_s": 18.37,
+        "util_pct": 28.0,
+        "mem_mib": 2618.0
       },
       {
-        "t_s": 34.6,
-        "util_pct": 38.0,
-        "mem_mib": 2497.0
+        "t_s": 18.95,
+        "util_pct": 29.0,
+        "mem_mib": 2618.0
       },
       {
-        "t_s": 35.17,
-        "util_pct": 36.0,
-        "mem_mib": 2474.0
+        "t_s": 19.53,
+        "util_pct": 25.0,
+        "mem_mib": 2620.0
       },
       {
-        "t_s": 35.75,
-        "util_pct": 40.0,
-        "mem_mib": 2494.0
-      },
-      {
-        "t_s": 36.32,
-        "util_pct": 39.0,
-        "mem_mib": 2494.0
-      },
-      {
-        "t_s": 36.92,
-        "util_pct": 39.0,
-        "mem_mib": 2494.0
-      },
-      {
-        "t_s": 37.49,
+        "t_s": 20.1,
         "util_pct": 31.0,
-        "mem_mib": 2493.0
+        "mem_mib": 2620.0
       },
       {
-        "t_s": 38.07,
-        "util_pct": 37.0,
-        "mem_mib": 2490.0
+        "t_s": 20.68,
+        "util_pct": 30.0,
+        "mem_mib": 2622.0
       },
       {
-        "t_s": 38.71,
-        "util_pct": 3.0,
-        "mem_mib": 2486.0
+        "t_s": 21.27,
+        "util_pct": 30.0,
+        "mem_mib": 2473.0
       },
       {
-        "t_s": 39.65,
-        "util_pct": 3.0,
-        "mem_mib": 2466.0
+        "t_s": 21.84,
+        "util_pct": 5.0,
+        "mem_mib": 2431.0
+      },
+      {
+        "t_s": 22.56,
+        "util_pct": 16.0,
+        "mem_mib": 2432.0
+      },
+      {
+        "t_s": 23.15,
+        "util_pct": 12.0,
+        "mem_mib": 2516.0
+      },
+      {
+        "t_s": 23.73,
+        "util_pct": 27.0,
+        "mem_mib": 2516.0
+      },
+      {
+        "t_s": 25.72,
+        "util_pct": 12.0,
+        "mem_mib": 2512.0
+      },
+      {
+        "t_s": 27.66,
+        "util_pct": 6.0,
+        "mem_mib": 2662.0
+      },
+      {
+        "t_s": 28.25,
+        "util_pct": 22.0,
+        "mem_mib": 2662.0
+      },
+      {
+        "t_s": 28.83,
+        "util_pct": 25.0,
+        "mem_mib": 2670.0
+      },
+      {
+        "t_s": 29.4,
+        "util_pct": 22.0,
+        "mem_mib": 2656.0
+      },
+      {
+        "t_s": 29.98,
+        "util_pct": 23.0,
+        "mem_mib": 2657.0
+      },
+      {
+        "t_s": 30.55,
+        "util_pct": 24.0,
+        "mem_mib": 2657.0
+      },
+      {
+        "t_s": 31.13,
+        "util_pct": 22.0,
+        "mem_mib": 2659.0
+      },
+      {
+        "t_s": 31.71,
+        "util_pct": 21.0,
+        "mem_mib": 2667.0
+      },
+      {
+        "t_s": 32.28,
+        "util_pct": 21.0,
+        "mem_mib": 2660.0
+      },
+      {
+        "t_s": 32.86,
+        "util_pct": 43.0,
+        "mem_mib": 2660.0
+      },
+      {
+        "t_s": 33.43,
+        "util_pct": 35.0,
+        "mem_mib": 2662.0
+      },
+      {
+        "t_s": 34.01,
+        "util_pct": 30.0,
+        "mem_mib": 2670.0
+      },
+      {
+        "t_s": 34.59,
+        "util_pct": 41.0,
+        "mem_mib": 2670.0
+      },
+      {
+        "t_s": 35.16,
+        "util_pct": 31.0,
+        "mem_mib": 2662.0
+      },
+      {
+        "t_s": 35.74,
+        "util_pct": 29.0,
+        "mem_mib": 2670.0
+      },
+      {
+        "t_s": 36.31,
+        "util_pct": 31.0,
+        "mem_mib": 2670.0
+      },
+      {
+        "t_s": 36.89,
+        "util_pct": 42.0,
+        "mem_mib": 2670.0
+      },
+      {
+        "t_s": 37.47,
+        "util_pct": 31.0,
+        "mem_mib": 2670.0
+      },
+      {
+        "t_s": 38.05,
+        "util_pct": 33.0,
+        "mem_mib": 2670.0
+      },
+      {
+        "t_s": 38.7,
+        "util_pct": 13.0,
+        "mem_mib": 2672.0
+      },
+      {
+        "t_s": 39.68,
+        "util_pct": 15.0,
+        "mem_mib": 2674.0
       }
     ]
   },
@@ -352,19 +357,19 @@
       "surrogate_model": "mace-off23-small",
       "classical_energy_kj_mol": 1305.936995415752,
       "mixed_energy_lambda_0_kj_mol": 1305.9336942713787,
-      "mixed_energy_lambda_1_kj_mol": -3270.712199447722,
+      "mixed_energy_lambda_1_kj_mol": -3270.7118313855117,
       "classical_limit_delta_kj_mol": 0.0033011443733812484,
       "classical_limit_exact": true,
       "surrogate_changes_energy": true,
       "switch_latency_us": {
         "min": 2.2,
         "median": 2.4,
-        "p95": 3.0,
+        "p95": 2.8,
         "samples": 256
       },
       "energy_conservation": {
-        "surrogate_drift_kt_dof_ns": 0.8413499463488733,
-        "classical_drift_kt_dof_ns": 4.437791279820014,
+        "surrogate_drift_kt_dof_ns": 0.7457229097036413,
+        "classical_drift_kt_dof_ns": 4.437787246078655,
         "drift_acceptable": true
       }
     },
@@ -476,8 +481,8 @@
         "specificity": 0.75,
         "intercept_rate_pct": 100.0,
         "false_negative_rate_pct": 0.0,
-        "in_distribution_sigma_f_mean_ev_per_ang": 0.18530115830764962,
-        "in_distribution_sigma_f_max_ev_per_ang": 1.79274062156316,
+        "in_distribution_sigma_f_mean_ev_per_ang": 0.18530132139285735,
+        "in_distribution_sigma_f_max_ev_per_ang": 1.7927420100509592,
         "committee_note": "Two different-size foundation models are correlated, so this force variance is a lower bound on a true fine-tune committee's; the geometry guard carries the distorted-pose interception."
       },
       "details": [
@@ -487,10 +492,10 @@
           "expected_flag": false,
           "actual_flag": false,
           "reason": null,
-          "sigma_f_max_ev_per_ang": 0.017967908531877425,
+          "sigma_f_max_ev_per_ang": 0.017968617224418365,
           "geometry_ok": true,
           "mode": "mace_surrogate",
-          "latency_us": 178777.0
+          "latency_us": 171746.9
         },
         {
           "type": "thermal_frame_2",
@@ -498,10 +503,10 @@
           "expected_flag": false,
           "actual_flag": false,
           "reason": null,
-          "sigma_f_max_ev_per_ang": 0.019125005137229464,
+          "sigma_f_max_ev_per_ang": 0.019124889177077636,
           "geometry_ok": true,
           "mode": "mace_surrogate",
-          "latency_us": 99706.1
+          "latency_us": 92998.2
         },
         {
           "type": "thermal_frame_3",
@@ -509,10 +514,10 @@
           "expected_flag": false,
           "actual_flag": false,
           "reason": null,
-          "sigma_f_max_ev_per_ang": 0.029954598384149312,
+          "sigma_f_max_ev_per_ang": 0.029954470439874013,
           "geometry_ok": true,
           "mode": "mace_surrogate",
-          "latency_us": 59259.8
+          "latency_us": 54546.1
         },
         {
           "type": "thermal_frame_4",
@@ -520,10 +525,10 @@
           "expected_flag": false,
           "actual_flag": false,
           "reason": null,
-          "sigma_f_max_ev_per_ang": 0.011207579110937265,
+          "sigma_f_max_ev_per_ang": 0.011207393391948078,
           "geometry_ok": true,
           "mode": "mace_surrogate",
-          "latency_us": 59886.8
+          "latency_us": 53281.3
         },
         {
           "type": "thermal_frame_5",
@@ -531,10 +536,10 @@
           "expected_flag": false,
           "actual_flag": false,
           "reason": null,
-          "sigma_f_max_ev_per_ang": 0.014797713908473625,
+          "sigma_f_max_ev_per_ang": 0.014797361738572407,
           "geometry_ok": true,
           "mode": "mace_surrogate",
-          "latency_us": 54870.8
+          "latency_us": 54314.4
         },
         {
           "type": "thermal_frame_6",
@@ -542,10 +547,10 @@
           "expected_flag": false,
           "actual_flag": true,
           "reason": "committee sigma_F 1.7927 eV/A > 0.0500 and sigma_E 1.075 kcal/mol > 1.000",
-          "sigma_f_max_ev_per_ang": 1.79274062156316,
+          "sigma_f_max_ev_per_ang": 1.7927420100509592,
           "geometry_ok": true,
           "mode": "classical_physics",
-          "latency_us": 55629.3
+          "latency_us": 55686.0
         },
         {
           "type": "thermal_frame_7",
@@ -553,10 +558,10 @@
           "expected_flag": false,
           "actual_flag": false,
           "reason": null,
-          "sigma_f_max_ev_per_ang": 0.036294705326684794,
+          "sigma_f_max_ev_per_ang": 0.03629474545221004,
           "geometry_ok": true,
           "mode": "classical_physics",
-          "latency_us": 55321.6
+          "latency_us": 53750.7
         },
         {
           "type": "thermal_frame_8",
@@ -564,10 +569,10 @@
           "expected_flag": false,
           "actual_flag": false,
           "reason": null,
-          "sigma_f_max_ev_per_ang": 0.047342773399616206,
+          "sigma_f_max_ev_per_ang": 0.04734302675824651,
           "geometry_ok": true,
           "mode": "classical_physics",
-          "latency_us": 58274.1
+          "latency_us": 53032.3
         },
         {
           "type": "thermal_frame_9",
@@ -575,10 +580,10 @@
           "expected_flag": false,
           "actual_flag": false,
           "reason": null,
-          "sigma_f_max_ev_per_ang": 0.03173872466267706,
+          "sigma_f_max_ev_per_ang": 0.031738654789924825,
           "geometry_ok": true,
           "mode": "classical_physics",
-          "latency_us": 61983.1
+          "latency_us": 53149.1
         },
         {
           "type": "thermal_frame_10",
@@ -586,10 +591,10 @@
           "expected_flag": false,
           "actual_flag": true,
           "reason": "committee sigma_F 0.0707 eV/A > threshold 0.0500 eV/A (atom 3)",
-          "sigma_f_max_ev_per_ang": 0.07071472450088895,
+          "sigma_f_max_ev_per_ang": 0.07071553725527625,
           "geometry_ok": true,
           "mode": "classical_physics",
-          "latency_us": 61698.2
+          "latency_us": 54746.8
         },
         {
           "type": "thermal_frame_11",
@@ -597,10 +602,10 @@
           "expected_flag": false,
           "actual_flag": true,
           "reason": "committee sigma_F 0.1258 eV/A > threshold 0.0500 eV/A (atom 2)",
-          "sigma_f_max_ev_per_ang": 0.12576252020658768,
+          "sigma_f_max_ev_per_ang": 0.12576254876967746,
           "geometry_ok": true,
           "mode": "classical_physics",
-          "latency_us": 60826.6
+          "latency_us": 52658.0
         },
         {
           "type": "thermal_frame_12",
@@ -608,10 +613,10 @@
           "expected_flag": false,
           "actual_flag": false,
           "reason": null,
-          "sigma_f_max_ev_per_ang": 0.02596702495951402,
+          "sigma_f_max_ev_per_ang": 0.025966601666103067,
           "geometry_ok": true,
           "mode": "classical_physics",
-          "latency_us": 62424.0
+          "latency_us": 52648.9
         },
         {
           "type": "steric_clash_0.40A",
@@ -622,7 +627,7 @@
           "sigma_f_max_ev_per_ang": 0.0,
           "geometry_ok": false,
           "mode": "classical_physics",
-          "latency_us": 105.7
+          "latency_us": 71.6
         },
         {
           "type": "steric_clash_0.50A",
@@ -633,7 +638,7 @@
           "sigma_f_max_ev_per_ang": 0.0,
           "geometry_ok": false,
           "mode": "classical_physics",
-          "latency_us": 35.6
+          "latency_us": 28.7
         },
         {
           "type": "steric_clash_0.60A",
@@ -644,7 +649,7 @@
           "sigma_f_max_ev_per_ang": 0.0,
           "geometry_ok": false,
           "mode": "classical_physics",
-          "latency_us": 26.5
+          "latency_us": 23.7
         },
         {
           "type": "bond_stretch_1.8A",
@@ -652,10 +657,10 @@
           "expected_flag": true,
           "actual_flag": true,
           "reason": "committee sigma_F 0.4777 eV/A > threshold 0.0500 eV/A (atom 0)",
-          "sigma_f_max_ev_per_ang": 0.47769698844550734,
+          "sigma_f_max_ev_per_ang": 0.4776968245359454,
           "geometry_ok": true,
           "mode": "classical_physics",
-          "latency_us": 66916.8
+          "latency_us": 54473.5
         },
         {
           "type": "bond_stretch_2.4A",
@@ -663,10 +668,10 @@
           "expected_flag": true,
           "actual_flag": true,
           "reason": "committee sigma_F 1.7602 eV/A > 0.0500 and sigma_E 3.973 kcal/mol > 1.000",
-          "sigma_f_max_ev_per_ang": 1.7602431296986012,
+          "sigma_f_max_ev_per_ang": 1.7602433692738069,
           "geometry_ok": true,
           "mode": "classical_physics",
-          "latency_us": 59361.2
+          "latency_us": 58553.1
         },
         {
           "type": "bond_stretch_3.0A",
@@ -677,7 +682,7 @@
           "sigma_f_max_ev_per_ang": 0.0,
           "geometry_ok": false,
           "mode": "classical_physics",
-          "latency_us": 73.0
+          "latency_us": 78.9
         }
       ]
     },
@@ -766,12 +771,12 @@
       "surrogate_model": "mace-off23-small",
       "fixture_particles": 26,
       "fixture_ml_atoms": 9,
-      "classical_mm_ns_per_day": 2.3152000115717772,
-      "mace_hybrid_ns_per_day": 2.1934021144456786,
-      "mace_overhead_factor": 1.055529214786446,
+      "classical_mm_ns_per_day": 2.2926789348395564,
+      "mace_hybrid_ns_per_day": 2.1989899611499517,
+      "mace_overhead_factor": 1.0426054576623036,
       "solvated_production_system": {
         "particles": 58893,
-        "measured_ns_per_day": 209.63231366124654,
+        "measured_ns_per_day": 181.86234618621384,
         "platform": "CUDA"
       },
       "campaign_projection": "measured",
@@ -780,11 +785,11 @@
         "replicates": 3,
         "legs_per_edge": 2,
         "sampling_per_leg_ns": 10.0,
-        "classical_total_gpu_hours": 357.1968399919569,
-        "mace_hybrid_total_gpu_hours": 171.4544831961393,
+        "classical_total_gpu_hours": 411.73998670031625,
+        "mace_hybrid_total_gpu_hours": 197.63519361615178,
         "net_speedup_pct": 52.0
       },
-      "campaign_projection_note": "Measured on 58,893-atom solvated production complex (209.6 ns/day on CUDA). 52-edge campaign wall-clock time reduced from 357.2 -> 171.5 GPU-hours (52.0% net speedup)."
+      "campaign_projection_note": "Measured on 58,893-atom solvated production complex (181.9 ns/day on CUDA). 52-edge campaign wall-clock time reduced from 411.7 -> 197.6 GPU-hours (52.0% net speedup)."
     }
   }
 }

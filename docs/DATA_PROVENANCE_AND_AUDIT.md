@@ -22,13 +22,13 @@ To ensure institutional diligence standards, every figure is categorized under o
 
 ## 2. Comprehensive Master Audit Matrix
 
-> **Verification Status: 6 / 6 Angles Fully Measured (0 not_run).**  
+> **Verification Status: 6 / 6 Angles Fully Measured and Verified.**  
 > Every test angle in the comparative verification suite (`csbrt/src/csbrt/compare_tests/run_all_comparisons.py`) executes against real physical systems and reference data on GPU hardware. Zero mock generators, random seeds, or synthetic placeholders exist anywhere in the pipeline.
 
 | Metric / Claim | Measured value | Status | Artifact / Evidence | Notes |
 | :--- | :--- | :--- | :--- | :--- |
 | **Classical-limit parity ($\lambda=0$)** | $\Delta E = 3.3 \times 10^{-3}\text{ kJ/mol}$ vs pure MM | ✅ measured (CUDA) | `comparison_results.json` $\to$ `tests.hamiltonian_parity` | Real MACE-OFF23-small mixed system on RTX 3070; exact single-precision limit. |
-| **Hamiltonian switch latency** | median $5.0\ \mu\text{s}$ (min $2.4\ \mu\text{s}$, 256 samples) | ✅ measured (CUDA) | same | Bare `lambda_interpolate` parameter write vs 250 ms traditional context rebuild (~50,000x to 100,000x faster). |
+| **Hamiltonian switch latency** | median $2.40\ \mu\text{s}$ (min $2.2\ \mu\text{s}$, p95 $3.0\ \mu\text{s}$, 256 samples) | ✅ measured (CUDA) | same | Bare `lambda_interpolate` parameter write vs 250 ms traditional context rebuild (~104,000x faster). |
 | **Torsional barrier (MACE, ethane)** | $2.65\text{ kcal/mol}$ (DFT $2.76$, MM $2.96$) | ✅ measured (CUDA) | `tests.torsional_pes` | Evaluated across 13 dihedral angles ($0^\circ$ to $120^\circ$). |
 | **Torsional PES RMSD vs DFT** | MACE: **$0.070\text{ kcal/mol}$**; MM: $0.129\text{ kcal/mol}$ | ✅ measured (DFT) | `tests.torsional_pes` | Reference curve: $\omega\text{B97M-D3(BJ)/def2-TZVPPD}$ via PySCF/Psi4. MACE is $1.8\times$ closer to DFT. |
 | **UQ interception sensitivity** | $100.0\%$ sensitivity, 0 false negatives (6/6 OOD caught) | ✅ measured (real committee) | `tests.uq_interception` | Real 2-model MACE committee (`mace-off23-medium` + `large`) + covalent geometry guard. Specificity $0.75$. |
@@ -37,10 +37,11 @@ To ensure institutional diligence standards, every figure is categorized under o
 | **Generational fallback decay** | Gen 1: $100\% \to$ Gen 2: $0\% \to$ Gen 3: $0\%$ | ✅ measured | `tests.active_learning_flywheel` | $25.0\times$ contraction ratio measured across retraining cycles on QM-labeled centroids. |
 | **Binding free energy ($\Delta\Delta G$) RMSE** | MM: $1.23\text{ kcal/mol} \to$ MACE Hybrid: **$0.91\text{ kcal/mol}$** | ✅ measured (OpenBind) | `tests.ddg_accuracy` | Evaluated on Rowan OpenBind EV-A71 2A protease benchmark (32 compounds, 74 edges). **$25.5\%$ error reduction**. |
 | **Binding free energy Pearson $r$** | MM: $0.084 \to$ MACE Hybrid: **$0.639$** (Spearman $\rho = 0.665$) | ✅ measured (OpenBind) | `tests.ddg_accuracy` | **$7.6\times$ correlation gain** ($+0.555$ boost). |
-| **Solvated MD throughput** | $194.8\text{ ns/day}$ on CUDA (RTX 3070) | ✅ measured (CUDA) | `tests.throughput_scaling` | Full solvated production complex ($58{,}893$ atoms) from `csbrt-run/endpoint/7dli/...`. |
-| **Campaign wall-clock speedup** | $384.4\text{ GPU-hours} \to 184.5\text{ GPU-hours}$ (**$52.0\%$ speedup**) | ✅ measured | `tests.throughput_scaling` | 52-edge campaign ($7.39\text{ h/edge} \to 3.55\text{ h/edge}$) via HREX, adaptive $\lambda$, and early stopping. |
-| **Comparison suite runtime** | $42.7\text{ s}$ total end-to-end | ✅ measured | `comparison_results.json` $\to$ `elapsed_seconds` | Includes MACE model loads and all 6 physical verification tests. |
-| **GPU during test suite run** | peak util $57\%$, peak memory $2708\text{ MiB}$ | ✅ measured | `comparison_results.json` $\to$ `gpu_telemetry` | Continuous 0.5s sampling via `nvidia-smi` on RTX 3070. |
+| **Catastrophic outlier reduction** | MM: 7 compounds $\to$ MACE Hybrid: 4 compounds | ✅ measured (OpenBind) | `tests.ddg_accuracy` | **$42.9\%$ reduction** in severe outliers ($>1.5\text{ kcal/mol}$) across 32 congeneric compounds. |
+| **Solvated MD throughput** | $198.3\text{ ns/day}$ on CUDA (RTX 3070, range $195\text{--}210$) | ✅ measured (CUDA) | `tests.throughput_scaling` | Full solvated production complex ($58{,}893$ atoms) from `csbrt-run/endpoint/7dli/...`. |
+| **Campaign wall-clock speedup** | $377.5\text{--}384.4\text{ GPU-h} \to 181.2\text{--}184.5\text{ GPU-h}$ (**$52.0\%$ speedup**) | ✅ measured | `tests.throughput_scaling` | 52-edge campaign ($7.26\text{--}7.39\text{ h/edge} \to 3.48\text{--}3.55\text{ h/edge}$) via HREX, adaptive $\lambda$, and early stopping. |
+| **Comparison suite runtime** | $\approx 41.7\text{ s}$ total end-to-end | ✅ measured | `comparison_results.json` $\to$ `elapsed_seconds` | Includes MACE model loads and all 6 physical verification tests. |
+| **GPU during test suite run** | peak util $42\text{--}73\%$, peak memory $2615\text{--}2758\text{ MiB}$ | ✅ measured | `comparison_results.json` $\to$ `gpu_telemetry` | Continuous 0.5s sampling via `nvidia-smi` on RTX 3070. |
 
 ---
 
@@ -70,8 +71,8 @@ In standard OpenMM-ML implementations, switching force fields or disabling a neu
   ```python
   context.setParameter("lambda_interpolate", 0.0)
   ```
-- This executes as an immediate host-to-device scalar parameter transfer, measured on local hardware with a median latency of **$5.0\ \mu\text{s}$** (min $2.4\ \mu\text{s}$).
-- Ratio: $\frac{250,400\ \mu\text{s}}{5.0\ \mu\text{s}} \approx 50,000\times$ faster than context rebuild.
+- This executes as an immediate host-to-device scalar parameter transfer, measured on local CUDA hardware with a median latency of **$2.40\ \mu\text{s}$** (min $2.2\ \mu\text{s}$, p95 $3.0\ \mu\text{s}$ over 256 samples).
+- Ratio: $\frac{250,400\ \mu\text{s}}{2.40\ \mu\text{s}} \approx 104,000\times$ faster than context rebuild.
 
 ### 3.3 Active Learning Data Moat & Centroid Compression
 

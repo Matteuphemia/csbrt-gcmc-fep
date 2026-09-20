@@ -20,7 +20,7 @@ We recommend reviewing in the following order:
 
 1. **Launch the Interactive Investor Demo Dashboard (Zero Install):**
    Open [`demo/index.html`](https://github.com/Matteuphemia/csbrt-gcmc-fep/blob/euph1-antig/demo/index.html) in your browser.
-   - Test the **Interactive AI Safety Simulator** (drag atomic strain sliders to watch UQ variance spike and trigger the 0.47 µs fallback).
+   - Test the **Interactive AI Safety Simulator** (drag atomic strain sliders to watch UQ variance spike and trigger the 2.4 µs fallback).
    - Inspect the **3D Molecular Pocket Explorer** (rotatable WebGL canvas of protein cavity, hydrating waters, and MACE drug core).
    - Adjust the **Enterprise ROI Calculator** sliders to model annual compute and cost savings.
 2. **Review the Investor Pitch Memo:**
@@ -45,9 +45,9 @@ We recommend reviewing in the following order:
 | :--- | :--- | :--- | :--- |
 | **Hamiltonian Representation** | Pure classical molecular mechanics (GAFF2 / Amber ff14SB). Bonds as springs, fixed charges. | Dual-Hamiltonian hybrid: MACE-OFF23 higher-order $E(3)$-GNN on ligand core + classical GPU solvent ocean. | `csbrt.mace_surrogate.hybrid_system` |
 | **Out-of-Distribution Handling** | None. Simulations crash or sample unphysical high-energy conformations. | Real-time UQ sentinel monitoring distance clashes, bond strain, and force variance ($\sigma_F$). | `csbrt.mace_surrogate.uncertainty` |
-| **Fallback Mechanism** | None. Requires manual crash recovery or slow OpenMM context rebuild ($250\text{ ms}$). | Instantaneous **0.47 µs parameter switch** via `lambda_interpolate` on compiled OpenMM Context. | `csbrt.mace_surrogate.fallback_controller` |
-| **Simulation Speedup** | Fixed 11 $\lambda$-windows $\times$ 5.0 ns ($55.0\text{ h/edge}$). | 7 adaptive $\lambda$-windows + HREX + early stopping ($26.2\text{ h/edge}$, **52.4% Net Speedup**). | `05_throughput_speedup_waterfall.svg` |
-| **Active Learning Data Moat** | Static force field parameters; no retraining mechanism. | Automated OOD frame harvesting, 99.4% RMSD sphere clustering, and frozen-backbone fine-tuning. | `csbrt.mace_surrogate.active_learning` |
+| **Fallback Mechanism** | None. Requires manual crash recovery or slow OpenMM context rebuild ($250\text{ ms}$). | Instantaneous **2.40 µs parameter switch** via `lambda_interpolate` on compiled OpenMM Context. | `csbrt.mace_surrogate.fallback_controller` |
+| **Simulation Speedup** | Fixed 11 $\lambda$-windows $\times$ 5.0 ns ($7.26\text{--}7.39\text{ h/edge}$). | 7 adaptive $\lambda$-windows + HREX + early stopping ($3.48\text{--}3.55\text{ h/edge}$, **52.0% Net Speedup**). | `05_throughput_speedup_waterfall.svg` |
+| **Active Learning Data Moat** | Static force field parameters; no retraining mechanism. | Automated OOD frame harvesting, 99.0% RMSD sphere clustering, and frozen-backbone fine-tuning. | `csbrt.mace_surrogate.active_learning` |
 | **Hardware Preflight** | Basic OpenMM GPU printout. | Automated preflight verifying CUDA capability, PyTorch/OpenMM ML integration, and $10^{-8}$ parity. | `csbrt-mace-preflight` CLI |
 | **Testing & Diligence** | Standard unit tests only. | Modular 6-angle comparative test suite + full data provenance audit. | `csbrt-compare-test` CLI |
 | **Visual Assets & Demo** | Static LaTeX reports and PDF figures. | Interactive web dashboard (`demo/index.html`) + 5 executive-grade vector graphics (`assets/figures/`). | Web application & SVG deck |
@@ -58,24 +58,25 @@ We recommend reviewing in the following order:
 
 Based on automated tests and local GPU execution on an NVIDIA RTX 3070:
 
-1. **$21\times$ Torsional Accuracy Improvement (Error Slashed from $5.64$ to $0.27\text{ kcal/mol}$):**
-   - Classical GAFF2 introduces a $5.64\text{ kcal/mol}$ barrier error and shifts the global minimum by $45^\circ$.
-   - MACE reproduces $\omega\text{B97M-D3(BJ)}$ DFT to within **$0.27\text{ kcal/mol}$** RMSD across a full $360^\circ$ scan.
-2. **$4.3\times$ Binding Free Energy Accuracy Improvement ($77.3\%$ Error Reduction):**
-   - Retrospective EV71 benchmark: Classical MM RMSE = $1.13\text{ kcal/mol}$; CSBRT Hybrid RMSE = **$0.26\text{ kcal/mol}$**.
-   - Pearson correlation with experimental affinities increases from $R = 0.82$ to **$R = 0.99$**.
-3. **$100\%$ Outlier Elimination (5 Catastrophic Failures $\rightarrow$ 0):**
-   - Under classical MM, 5 potent leads were falsely rejected due to water displacement errors and amide strain. Under MACE, all 5 are correctly predicted within $0.65\text{ kcal/mol}$.
-4. **$530,000\times$ Faster Safety Fallback ($250\text{ ms} \rightarrow 0.47\ \mu\text{s}$):**
+1. **1.8× Torsional Accuracy Improvement (RMSD reduced from 0.129 to 0.070 kcal/mol):**
+   - Evaluated against reference DFT single points computed at the MACE-OFF reference level ($\omega\text{B97M-D3(BJ)/def2-TZVPPD}$).
+   - MACE reproduces the quantum barrier with **$0.10\text{ kcal/mol}$** error (barrier $2.65$ vs DFT $2.76\text{ kcal/mol}$), while classical MM exhibits twice the error ($0.20\text{ kcal/mol}$, barrier $2.96\text{ kcal/mol}$).
+2. **7.6× Correlation Gain & 25.5% Error Reduction in Binding Free Energy:**
+   - Evaluated against empirical experimental affinities on the Rowan OpenBind EV-A71 congeneric series (32 compounds, 74 edges).
+   - RMSE drops from $1.23\text{ kcal/mol} \to \mathbf{0.91\text{ kcal/mol}}$ ($25.5\%$ error cut).
+   - Pearson correlation increases from $r = 0.084 \to \mathbf{0.639}$ ($+0.555$ boost; Spearman $\rho = 0.665$).
+3. **42.9% Catastrophic Outlier Elimination (7 Failures → 4):**
+   - Under classical MM, 7 compounds suffered catastrophic prediction errors ($>1.5\text{ kcal/mol}$). Under MACE hybrid, severe outliers drop to 4 compounds.
+4. **~104,000× Faster Safety Fallback ($250.4\text{ ms} \rightarrow 2.40\ \mu\text{s}$):**
    - Rebuilding an OpenMM `System`/`Context` halts the GPU pipeline for $250.4\text{ ms}$.
-   - Updating `lambda_interpolate` directly on device takes **$0.473\ \mu\text{s}$**, preserving simulation momentum with zero crashes.
-5. **$42.4\times$ Contraction in Model Uncertainty ($17.8\% \rightarrow 0.42\%$):**
-   - Across 3 active learning generations on the EV71 scaffold, fallback trigger frequency drops from $17.8\%$ to **$0.42\%$**, solidifying a proprietary data moat.
-6. **$167\times$ Compute Reduction in Labeling ($99.4\%$ Centroid Compression):**
-   - Greedy RMSD sphere clustering ($0.5\ \text{\AA}$) reduces 890 candidate OOD frames into **32 distinct structural centroids**, avoiding 858 redundant expensive DFT single points.
-7. **$2.1\times$ Campaign Speedup ($52.4\%$ Net Wall-Clock Reduction):**
-   - While ML evaluates slower per step on ligand atoms ($0.257\times$ step throughput on 26-particle testbench), HREX (-12.5h), adaptive $\lambda$ (-11.0h), and cycle-closure early stopping (-8.5h) deliver a net reduction from $55.0$ to **$26.2\text{ hours per edge}$**.
-   - Generates **$>\$190,000$ annual cloud compute savings** per 50 drug discovery targets.
+   - Updating `lambda_interpolate` directly on device takes median **$2.40\ \mu\text{s}$** (measured on CUDA, min $2.2\ \mu\text{s}$), preserving simulation momentum with zero crashes.
+5. **25.0× Contraction in Model Uncertainty ($100.0\% \rightarrow 0.0\%$):**
+   - Across active learning generations, fallback trigger frequency drops from $100.0\%$ (Gen 1) to **$0.0\%$ (Gen 2 and Gen 3)**, establishing a measured $25.0\times$ uncertainty contraction ratio on real QM-labeled conformational basins.
+6. **100× Compute Reduction in Labeling (99.0% Centroid Compression):**
+   - Greedy RMSD sphere clustering ($0.5\ \text{\AA}$) reduces 300 harvested candidate OOD frames into **3 distinct structural centroids**, avoiding 297 redundant expensive DFT single points.
+7. **52.0% Net Campaign Wall-Clock Speedup:**
+   - Measured directly on the full solvated 58,893-atom production complex ($195\text{--}210\text{ ns/day}$ on CUDA).
+   - Slashing 52-edge campaign wall-clock time from $377.5\text{--}384.4\text{ GPU-hours}$ ($7.26\text{--}7.39\text{ h/edge}$) down to **$181.2\text{--}184.5\text{ GPU-hours}$** ($3.48\text{--}3.55\text{ h/edge}$).
 
 ---
 

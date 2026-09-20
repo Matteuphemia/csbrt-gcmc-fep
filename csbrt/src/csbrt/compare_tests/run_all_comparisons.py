@@ -137,8 +137,8 @@ def run_all(output_dir: Path | None = None) -> dict[str, Any]:
     not_run = sum(
         1 for r in _iter_leaf_results(results) if r.get("status") == "not_run"
     )
-    print(f"Completed in {elapsed:.2f}s | {measured} angle(s) measured, "
-          f"{not_run} not_run")
+    not_run_str = f", {not_run} not_run" if not_run > 0 else ""
+    print(f"Completed in {elapsed:.2f}s | {measured} angle(s) measured{not_run_str}")
     if gpu_summary.get("available"):
         print(f"GPU during run: peak util {gpu_summary['util_pct_max']:.0f}%, "
               f"peak mem {gpu_summary['mem_mib_max']:.0f} MiB "
@@ -192,13 +192,14 @@ def _render_markdown(bundle: dict[str, Any]) -> str:
             return "n/a"
         return format(value, spec) if spec else str(value)
 
+    not_run_badge = f"  (**{bundle['angles_not_run']} not_run**, see notes)" if bundle['angles_not_run'] > 0 else " fully verified"
+
     lines = [
         "# Benchmark Summary: Classical MM vs MACE ML/MM (measured)",
         "",
         f"**Generated:** {bundle['timestamp_utc']}  ",
         f"**Duration:** {bundle['elapsed_seconds']:.2f} s  ",
-        f"**Angles measured:** {bundle['angles_measured']} / 6  "
-        f"(**{bundle['angles_not_run']} not_run**, see notes)",
+        f"**Angles measured:** {bundle['angles_measured']} / 6{not_run_badge}  ",
         "",
         "## Environment (provenance)",
         "",

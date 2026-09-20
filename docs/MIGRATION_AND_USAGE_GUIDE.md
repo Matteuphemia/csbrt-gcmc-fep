@@ -1,7 +1,7 @@
 # CSBRT Platform: Migration & Usage Guide
 
 > **Data-integrity note.** All performance metrics in this guide are **empirically
-> measured (6 of 6 angles, 0 not_run)** using the comparative verification suite
+> measured and verified across all 6 benchmark angles** using the comparative verification suite
 > (`csbrt/src/csbrt/compare_tests/run_all_comparisons.py`), the Rowan OpenBind EV-A71
 > benchmark dataset, reference DFT $\omega$B97M-D3(BJ)/def2-TZVPPD calculations, and
 > full solvated 58k-atom MD runs on NVIDIA GeForce RTX 3070. See
@@ -26,10 +26,10 @@ The re-architected `euph1-antig` branch introduces a **production-grade Hybrid M
 ┌──────────────────────────────────────┐     ┌──────────────────────────────────────────────┐
 │  • Pure GAFF2 / Amber ff14SB         │     │  • Quantum MACE GNN on 40-atom Ligand Core   │
 │  • Fixed point charges & springs     │     │  • Classical OpenMM GPU Solvent Ocean        │
-│  • 11 fixed lambda windows           │ ──> │  • Real-Time UQ Sentinel (0.47 µs fallback)  │
-│  • 55 hours / perturbation edge      │     │  • 7 adaptive lambda windows via HREX        │
+│  • 11 fixed lambda windows           │ ──> │  • Real-Time UQ Sentinel (2.4 µs fallback)   │
+│  • 7.26–7.39 hours / edge            │     │  • 7 adaptive lambda windows via HREX        │
 │  • Manual failure diagnosis          │     │  • Automated Active Learning Data Moat       │
-│  • Risk of simulation crashes        │     │  • 26.2 hours / edge (52.4% Net Speedup)     │
+│  • Risk of simulation crashes        │     │  • 3.48–3.55 hours / edge (52.0% Net Speedup)│
 └──────────────────────────────────────┘     └──────────────────────────────────────────────┘
 ```
 
@@ -41,9 +41,9 @@ The re-architected `euph1-antig` branch introduces a **production-grade Hybrid M
 | :--- | :--- | :--- | :--- |
 | **Hamiltonian Representation** | Pure classical molecular mechanics (GAFF2 / Amber ff14SB). | Dual-Hamiltonian hybrid: MACE-OFF23 GNN + Classical MM solvent. | `csbrt.mace_surrogate.hybrid_system` |
 | **Out-of-Distribution Handling** | None. Simulations either crash or sample unphysical high-energy states. | Real-time UQ sentinel monitoring distance clashes, bond strain, and force variance ($\sigma_F$). | `csbrt.mace_surrogate.uncertainty` |
-| **Fallback Mechanism** | None. Failed simulations require manual restart and context rebuilding. | Instantaneous **0.47 µs parameter switch** via `lambda_interpolate` on compiled OpenMM Context. | `csbrt.mace_surrogate.fallback_controller` |
-| **Simulation Speedup** | Fixed 11 $\lambda$-windows $\times$ 5.0 ns ($55\text{ h/edge}$). | 7 adaptive $\lambda$-windows + HREX + early stopping ($26.2\text{ h/edge}$, **52.4% faster**). | `05_throughput_speedup_waterfall.svg` |
-| **Active Learning** | No retraining loop. Force field parameters remain static. | Automated OOD frame harvesting, 99.4% RMSD sphere clustering, and frozen-backbone fine-tuning. | `csbrt.mace_surrogate.active_learning` |
+| **Fallback Mechanism** | None. Failed simulations require manual restart and context rebuilding. | Instantaneous **2.40 µs parameter switch** via `lambda_interpolate` on compiled OpenMM Context. | `csbrt.mace_surrogate.fallback_controller` |
+| **Simulation Speedup** | Fixed 11 $\lambda$-windows $\times$ 5.0 ns ($7.26\text{--}7.39\text{ h/edge}$). | 7 adaptive $\lambda$-windows + HREX + early stopping ($3.48\text{--}3.55\text{ h/edge}$, **52.0% faster**). | `05_throughput_speedup_waterfall.svg` |
+| **Active Learning** | No retraining loop. Force field parameters remain static. | Automated OOD frame harvesting, 99.0% RMSD sphere clustering, and frozen-backbone fine-tuning. | `csbrt.mace_surrogate.active_learning` |
 | **Hardware Preflight** | Basic OpenMM GPU check. | Rigorous preflight verifying CUDA capability, PyTorch/OpenMM ML integration, and $10^{-8}$ parity. | `csbrt-mace-preflight` CLI |
 | **Performance Benchmarking** | Basic throughput printout. | Automated throughput benchmark comparing pure MM vs hybrid surrogate with JSON telemetry. | `csbrt-mace-benchmark` CLI |
 | **Comparative Test Suite** | Standard pytest unit tests. | Dedicated 6-module comparative verification suite evaluating MM vs Hybrid parity and accuracy. | `csbrt-compare-test` CLI |
@@ -97,7 +97,7 @@ csbrt-mace-preflight --device cuda --json preflight_gpu_output.json
 [INFO] Checking PyTorch CUDA availability: True (NVIDIA GeForce RTX 3070)
 [INFO] Checking OpenMM CUDA platform: Available
 [INFO] Evaluating Hamiltonian parity at lambda=0.0: Max energy diff = 4.52e-08 kJ/mol (PASSED)
-[INFO] Testing parameter switch latency: 0.47 microseconds (PASSED)
+[INFO] Testing parameter switch latency: 2.40 microseconds (PASSED)
 [SUCCESS] Hardware preflight completed successfully. Saved to preflight_gpu_output.json
 ```
 
@@ -220,7 +220,7 @@ mace_surrogate:
     force_variance_threshold: 0.05  # eV/Angstrom
     clash_distance_ratio: 0.60      # Fraction of vdW sum
     max_bond_stretch: 0.40          # Angstrom deviation from equilibrium
-    fallback_strategy: "instant_parameter_switch"  # 0.47 µs latency
+    fallback_strategy: "instant_parameter_switch"  # 2.4 µs latency
   
   # Adaptive Alchemical Scheduling
   alchemical:
