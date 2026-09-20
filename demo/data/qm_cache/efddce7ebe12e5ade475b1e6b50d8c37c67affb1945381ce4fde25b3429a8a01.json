@@ -1,0 +1,9 @@
+{
+  "success": true,
+  "engine": "psi4",
+  "driver": "energy",
+  "energy_hartree": -79.86801396717924,
+  "energy_ev": -2173.3193767608786,
+  "energy_kcal_mol": -50117.93543900897,
+  "key": "efddce7ebe12e5ade475b1e6b50d8c37c67affb1945381ce4fde25b3429a8a01"
+}

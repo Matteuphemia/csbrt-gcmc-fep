@@ -98,24 +98,26 @@ def test_buffer_resolves_against_the_stage_directory(tmp_path):
     assert config.resolve_paths(tmp_path).ood_buffer_dir == str(
         tmp_path / "al_buffer"
     )
-    absolute = MACEConfig(enabled=True, ood_buffer_dir="/scratch/buffers")
-    assert absolute.resolve_paths(tmp_path).ood_buffer_dir == "/scratch/buffers"
+    abs_buf = str(tmp_path / "abs_buffers")
+    absolute = MACEConfig(enabled=True, ood_buffer_dir=abs_buf)
+    assert absolute.resolve_paths(tmp_path).ood_buffer_dir == abs_buf
 
 
 def test_models_resolve_against_the_working_directory(tmp_path, monkeypatch):
     """A model path means where the person typed it, not inside the run tree."""
     monkeypatch.chdir(tmp_path)
     (tmp_path / "models").mkdir()
+    abs_b = str(tmp_path / "abs_b.model")
     config = MACEConfig(
         enabled=True,
         model_path="models/gen2.model",
-        committee_model_paths=["models/a.model", "/abs/b.model"],
+        committee_model_paths=["models/a.model", abs_b],
     )
     resolved = config.resolve_paths(tmp_path / "run" / "endpoint" / "deep")
     assert resolved.model_path == str(tmp_path / "models" / "gen2.model")
     assert resolved.committee_model_paths == (
         str(tmp_path / "models" / "a.model"),
-        "/abs/b.model",
+        abs_b,
     )
 
 

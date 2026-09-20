@@ -1,184 +1,198 @@
-"""Angle 3: Real-Time Uncertainty Quantification (UQ) & Fallback Interception.
+"""Angle 3: Real-time uncertainty quantification and fallback interception.
 
-Verifies the AI safety net:
-- Evaluates in-distribution vs out-of-distribution (OOD) perturbed poses.
-- Tests committee force variance standard deviation (sigma_F) and geometry guard.
-- Confirms 100% interception rate with zero false negatives on unphysical conformations.
+Every uncertainty here is a real committee measurement. A two-member MACE-OFF23
+committee (medium + large -- they share r_max and element table, so
+``MACECalculator`` accepts them) evaluates a matrix of ligand geometries:
+relaxed / thermally jittered poses (in-distribution) and deliberately distorted
+poses (steric clashes, stretched bonds). Each geometry passes through the real
+``GeometryGuard``, ``MACEUQMonitor`` and ``PhysicsFallbackController``. The
+sensitivity, specificity and per-case sigma_F are computed from what those
+components actually returned -- nothing is simulated.
+
+Caveat: two foundation models of different sizes are correlated, so their force
+variance underestimates a true active-learning committee's. This measures that
+the interception *machinery* works on real forces, not a production fallback
+rate.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
+import sys
 import time
 from typing import Any
+
 import numpy as np
 
-from csbrt.mace_surrogate.uq_monitor import (
-    GeometryGuard,
-    MACEUQMonitor,
-    UQResult,
-)
-from csbrt.mace_surrogate.fallback_controller import (
-    EvaluatorMode,
-    PhysicsFallbackController,
-)
-from csbrt.mace_surrogate.config import MACEConfig
-from csbrt.mace_surrogate.testsystems import (
-    LIGAND_ATOMIC_NUMBERS,
-    LIGAND_ATOMS,
-    LIGAND_BONDS,
-)
+_SRC = Path(__file__).resolve().parents[2]
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
+
+try:
+    import torch
+    from csbrt.mace_surrogate.uq_monitor import GeometryGuard, MACEUQMonitor
+    from csbrt.mace_surrogate.fallback_controller import (
+        EvaluatorMode,
+        PhysicsFallbackController,
+    )
+    from csbrt.mace_surrogate.committee import MACECommittee
+    from csbrt.mace_surrogate.config import MACEConfig
+    from csbrt.mace_surrogate.testsystems import (
+        LIGAND_ATOMIC_NUMBERS,
+        LIGAND_ATOMS,
+        LIGAND_BONDS,
+    )
+    from csbrt.compare_tests._common import COMMITTEE_MODELS, ensure_mace_off_cached
+
+    HAS_DEPS = True
+    _IMPORT_ERROR = None
+except Exception as error:  # pragma: no cover - environment dependent
+    HAS_DEPS = False
+    _IMPORT_ERROR = repr(error)
 
 
 def run_uq_interception_benchmark() -> dict[str, Any]:
-    """Benchmark UQ monitor and fallback interception across test matrix."""
-    guard = GeometryGuard(
-        atomic_numbers=LIGAND_ATOMIC_NUMBERS,
-        bonds=LIGAND_BONDS,
-        min_distance_ang=0.70,
-        max_bond_scale=1.60,
+    if not HAS_DEPS:
+        return {
+            "summary": {
+                "test_name": "UQ & Geometry Guard Interception",
+                "status": "not_run",
+                "reason": f"Required dependency missing: {_IMPORT_ERROR}",
+            },
+            "details": [],
+        }
+
+    model_paths = [str(ensure_mace_off_cached(name)) for name in COMMITTEE_MODELS]
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    committee = MACECommittee(model_paths, device=device, precision="single")
+
+    base = np.array([atom[2] for atom in LIGAND_ATOMS], dtype=np.float64)
+    atomic_numbers = list(LIGAND_ATOMIC_NUMBERS)
+
+    committee.warm_up(atomic_numbers, base)
+
+    threshold_ev = 0.05
+    config = MACEConfig(
+        enabled=True, uq_force_threshold_ev_per_ang=threshold_ev
     )
+    guard = GeometryGuard(
+        atomic_numbers=atomic_numbers,
+        bonds=LIGAND_BONDS,
+        min_distance_ang=config.geometry_min_distance_ang,
+        max_bond_scale=config.geometry_max_bond_scale,
+    )
+    monitor = MACEUQMonitor(config, committee=committee, geometry_guard=guard)
+    controller = PhysicsFallbackController(config=config, uq_monitor=monitor)
 
-    base_coords = np.array([atom[2] for atom in LIGAND_ATOMS], dtype=np.float64)
-
-    test_cases = []
-    
-    # In-distribution cases (relaxed poses + thermal fluctuations)
-    np.random.seed(42)
-    for i in range(25):
-        # Thermal jitter around equilibrium (std ~ 0.04 A)
-        jitter = np.random.normal(0.0, 0.04, base_coords.shape)
-        coords = base_coords + jitter
-        test_cases.append({
-            "category": "in_distribution",
-            "type": f"thermal_frame_{i+1}",
-            "coords": coords,
-            "expected_flag": False,
-            "simulated_committee_sigma_f": float(np.random.uniform(0.012, 0.038)),
-        })
-
-    # Out-of-distribution cases:
-    # 1. Steric clashes (move H atoms into C or O)
-    for clash_dist in [0.40, 0.50, 0.60, 0.68]:
-        coords = base_coords.copy()
-        coords[3] = coords[0] + np.array([clash_dist, 0.0, 0.0])
-        test_cases.append({
-            "category": "out_of_distribution",
-            "type": f"steric_clash_{clash_dist:.2f}A",
-            "coords": coords,
-            "expected_flag": True,
-            "simulated_committee_sigma_f": float(np.random.uniform(0.12, 0.35)),
-        })
-
-    # 2. Overextended bonds (C-C or C-O stretch)
-    for stretch in [1.8, 2.2, 2.6, 3.0]:
-        coords = base_coords.copy()
+    cases: list[dict[str, Any]] = []
+    rng = np.random.default_rng(42)
+    for i in range(12):
+        cases.append(
+            {
+                "type": f"thermal_frame_{i + 1}",
+                "category": "in_distribution",
+                "coords": base + rng.normal(0.0, 0.04, base.shape),
+                "expected_flag": False,
+            }
+        )
+    for clash in (0.40, 0.50, 0.60):
+        coords = base.copy()
+        coords[3] = coords[0] + np.array([clash, 0.0, 0.0])
+        cases.append(
+            {
+                "type": f"steric_clash_{clash:.2f}A",
+                "category": "out_of_distribution",
+                "coords": coords,
+                "expected_flag": True,
+            }
+        )
+    for stretch in (1.8, 2.4, 3.0):
+        coords = base.copy()
         coords[1] = coords[0] + np.array([stretch, 0.0, 0.0])
-        test_cases.append({
-            "category": "out_of_distribution",
-            "type": f"bond_stretch_{stretch:.1f}A",
-            "coords": coords,
-            "expected_flag": True,
-            "simulated_committee_sigma_f": float(np.random.uniform(0.15, 0.48)),
-        })
-
-    # 3. High torsional strain / distorted valence
-    for angle_distortion in [45.0, 60.0, 90.0]:
-        coords = base_coords.copy()
-        coords[2] += np.array([0.0, 0.0, angle_distortion / 50.0])
-        test_cases.append({
-            "category": "out_of_distribution",
-            "type": f"torsional_strain_{angle_distortion:.0f}deg",
-            "coords": coords,
-            "expected_flag": True,
-            "simulated_committee_sigma_f": float(np.random.uniform(0.065, 0.18)),
-        })
-
-    # Run evaluation
-    results_detail = []
-    true_positives = 0
-    false_positives = 0
-    true_negatives = 0
-    false_negatives = 0
-
-    threshold_ev_per_ang = 0.05
-    config = MACEConfig(enabled=True, uq_force_threshold_ev_per_ang=threshold_ev_per_ang)
-    controller = PhysicsFallbackController(config=config)
-
-    for tc in test_cases:
-        coords = tc["coords"]
-        expected = tc["expected_flag"]
-
-        guard_ok, guard_reason = guard.check(coords)
-        guard_flag = not guard_ok
-        sigma_f = tc["simulated_committee_sigma_f"]
-        committee_flag = sigma_f >= threshold_ev_per_ang
-
-        flagged = guard_flag or committee_flag
-        reason = guard_reason if guard_flag else ("high_committee_sigma_F" if committee_flag else None)
-
-        uq_result = UQResult(
-            sigma_f_max_ev_per_ang=sigma_f,
-            sigma_f_max_kcal_per_mol_ang=sigma_f * 23.06,
-            sigma_f_max_kj_per_mol_nm=sigma_f * 964.85,
-            sigma_e_ev=0.01,
-            sigma_e_kcal_per_mol=0.23,
-            sigma_e_kj_per_mol=0.96,
-            is_ood=flagged,
-            trigger_reason=reason,
-            geometry_ok=guard_ok,
-            geometry_reason=guard_reason,
+        cases.append(
+            {
+                "type": f"bond_stretch_{stretch:.1f}A",
+                "category": "out_of_distribution",
+                "coords": coords,
+                "expected_flag": True,
+            }
         )
 
+    tp = fp = tn = fn = 0
+    details: list[dict[str, Any]] = []
+    for case in cases:
         t0 = time.perf_counter_ns()
-        mode = controller.observe(uq_result)
-        t1 = time.perf_counter_ns()
-        latency_us = (t1 - t0) / 1000.0
+        result = monitor.evaluate(case["coords"], atomic_numbers)
+        mode = controller.observe(result, {"positions": case["coords"]})
+        latency_us = (time.perf_counter_ns() - t0) / 1000.0
 
+        flagged = bool(result.is_ood)
+        expected = case["expected_flag"]
         if expected and flagged:
-            true_positives += 1
+            tp += 1
         elif expected and not flagged:
-            false_negatives += 1
+            fn += 1
         elif not expected and not flagged:
-            true_negatives += 1
-        elif not expected and flagged:
-            false_positives += 1
+            tn += 1
+        else:
+            fp += 1
 
-        results_detail.append({
-            "type": tc["type"],
-            "category": tc["category"],
-            "expected_flag": expected,
-            "actual_flag": flagged,
-            "reason": reason,
-            "sigma_f_ev_ang": sigma_f,
-            "mode": mode.value,
-            "latency_us": latency_us,
-        })
+        details.append(
+            {
+                "type": case["type"],
+                "category": case["category"],
+                "expected_flag": expected,
+                "actual_flag": flagged,
+                "reason": result.trigger_reason,
+                "sigma_f_max_ev_per_ang": result.sigma_f_max_ev_per_ang,
+                "geometry_ok": result.geometry_ok,
+                "mode": mode.value,
+                "latency_us": latency_us,
+            }
+        )
 
-    sensitivity = true_positives / max(true_positives + false_negatives, 1)
-    specificity = true_negatives / max(true_negatives + false_positives, 1)
+    sensitivity = tp / max(tp + fn, 1)
+    specificity = tn / max(tn + fp, 1)
+    in_dist_sigma = [
+        d["sigma_f_max_ev_per_ang"]
+        for d in details
+        if d["category"] == "in_distribution"
+    ]
 
     summary = {
         "test_name": "UQ & Geometry Guard Interception",
-        "status": "passed" if (sensitivity == 1.0 and false_negatives == 0) else "failed",
-        "total_cases_evaluated": len(test_cases),
-        "in_distribution_cases": 25,
-        "out_of_distribution_cases": len(test_cases) - 25,
-        "true_positives": true_positives,
-        "true_negatives": true_negatives,
-        "false_positives": false_positives,
-        "false_negatives": false_negatives,
+        "status": "passed" if fn == 0 else "failed",
+        "measured": True,
+        "committee_models": list(COMMITTEE_MODELS),
+        "device": device,
+        "force_threshold_ev_per_ang": threshold_ev,
+        "total_cases_evaluated": len(cases),
+        "in_distribution_cases": len(in_dist_sigma),
+        "out_of_distribution_cases": len(cases) - len(in_dist_sigma),
+        "true_positives": tp,
+        "true_negatives": tn,
+        "false_positives": fp,
+        "false_negatives": fn,
         "sensitivity": sensitivity,
         "specificity": specificity,
         "intercept_rate_pct": float(sensitivity * 100.0),
-        "false_negative_rate_pct": float((false_negatives / max(true_positives + false_negatives, 1)) * 100.0),
-        "safety_guarantee": "100% interception of unphysical conformations (zero unphysical frames escape to dynamics)",
+        "false_negative_rate_pct": float(fn / max(tp + fn, 1) * 100.0),
+        "in_distribution_sigma_f_mean_ev_per_ang": (
+            float(np.mean(in_dist_sigma)) if in_dist_sigma else None
+        ),
+        "in_distribution_sigma_f_max_ev_per_ang": (
+            float(np.max(in_dist_sigma)) if in_dist_sigma else None
+        ),
+        "committee_note": (
+            "Two different-size foundation models are correlated, so this "
+            "force variance is a lower bound on a true fine-tune committee's; "
+            "the geometry guard carries the distorted-pose interception."
+        ),
     }
-
-    return {"summary": summary, "details": results_detail}
+    return {"summary": summary, "details": details}
 
 
 if __name__ == "__main__":
     import json
-    res = run_uq_interception_benchmark()
-    print(json.dumps(res["summary"], indent=2))
 
+    print(json.dumps(run_uq_interception_benchmark()["summary"], indent=2))

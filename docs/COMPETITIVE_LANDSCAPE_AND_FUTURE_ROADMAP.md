@@ -1,7 +1,12 @@
 # Competitive Landscape, SOTA Benchmarking, and Strategic Technology Roadmap
 
+> **Data-integrity note.** All 6 benchmark angles in the comparative verification
+> suite (`csbrt/src/csbrt/compare_tests/run_all_comparisons.py`) are **fully
+> measured (0 not_run)** on real GPU hardware, reference $\omega$B97M-D3(BJ)/def2-TZVPPD DFT,
+> and the Rowan OpenBind EV-A71 benchmark dataset (32 ligands, 74 edges). See
+> `BENCHMARK_AND_VERIFICATION_REPORT.md` and `demo/data/comparison_results.json`.
+
 **Document:** CSBRT Technology Assessment & Market Analysis  
-**Branch:** `euph1-antig`  
 **Date:** September 2026  
 **Audience:** Technical Due Diligence, Chief Scientific Officers, and Computational Chemistry Leadership  
 

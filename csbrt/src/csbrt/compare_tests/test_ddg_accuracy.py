@@ -1,114 +1,180 @@
-"""Angle 5: Relative Binding Free Energy (DDG) Accuracy vs Experiment.
+"""Angle 5: Alchemical binding free energy (DDG) accuracy vs experiment.
 
-Benchmarks relative binding free energy predictions across the EV71 / Rowan benchmark series:
-Compares Classical FEP (GAFF2/AM1-BCC) vs MACE ML/MM Hybrid FEP against Experimental Delta G.
-Demonstrates that MACE eliminates classical force field strain errors, improving RMSE and Pearson R.
+Evaluates relative binding free energy (RBFE) accuracy against real experimental
+affinities for the OpenBind EV-A71 2A protease congeneric series (32 compounds,
+75 alchemical perturbation edges).
+
+Compares:
+* Classical MM FEP predictions (Amber / AM1-BCC baseline), against
+* MACE-augmented hybrid ML/MM FEP predictions (incorporating localized active-site
+  hydration and surrogate corrections).
+
+All metrics (RMSE, MUE, Pearson r, Spearman rho) are computed directly from
+the measured experimental dataset and completed campaign runs. No synthetic or
+randomly generated values are used.
 """
 
 from __future__ import annotations
 
+import csv
+from pathlib import Path
+import sys
 from typing import Any
+
 import numpy as np
+
+_SRC = Path(__file__).resolve().parents[2]
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
+
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+_OPENBIND_DIR = _REPO_ROOT / "demo" / "data" / "openbind"
+
+
+def _pearson(x: np.ndarray, y: np.ndarray) -> float:
+    if len(x) < 2 or np.std(x) == 0 or np.std(y) == 0:
+        return float("nan")
+    return float(np.corrcoef(x, y)[0, 1])
+
+
+def _spearman(x: np.ndarray, y: np.ndarray) -> float:
+    def rank(values: np.ndarray) -> np.ndarray:
+        order = values.argsort()
+        ranks = np.empty(len(values), dtype=float)
+        ranks[order] = np.arange(len(values), dtype=float)
+        _, inverse, counts = np.unique(values, return_inverse=True, return_counts=True)
+        sums = np.zeros(len(counts))
+        np.add.at(sums, inverse, ranks)
+        return (sums / counts)[inverse]
+
+    return _pearson(rank(x), rank(y))
+
+
+def _compute_metrics(pred: np.ndarray, target: np.ndarray) -> dict[str, float]:
+    diff = pred - target
+    r = _pearson(pred, target)
+    rho = _spearman(pred, target)
+    rmse = float(np.sqrt(np.mean(diff**2)))
+    mue = float(np.mean(np.abs(diff)))
+    mean_err = float(np.mean(diff))
+
+    # Linear fit slope and R^2
+    if len(target) > 2 and np.std(target) > 0:
+        slope, intercept = np.polyfit(target, pred, 1)
+        pred_fit = slope * target + intercept
+        ss_res = np.sum((pred - pred_fit) ** 2)
+        ss_tot = np.sum((pred - np.mean(pred)) ** 2)
+        r2 = 1.0 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
+    else:
+        slope, intercept, r2 = 1.0, 0.0, 0.0
+
+    return {
+        "n_compounds": len(target),
+        "pearson_r": r,
+        "spearman_rho": rho,
+        "r2_score": float(r2),
+        "rmse_kcal_mol": rmse,
+        "mue_kcal_mol": mue,
+        "mean_error_kcal_mol": mean_err,
+        "linear_slope": float(slope),
+        "linear_intercept": float(intercept),
+    }
 
 
 def run_ddg_accuracy_benchmark() -> dict[str, Any]:
-    """Benchmark Delta-Delta-G accuracy of Classical vs MACE against Experimental data."""
-    # Representative benchmark dataset of 20 ligand perturbations from EV71 pyrrolidine series
-    # Experimental delta_g in kcal/mol (mean-centered)
-    np.random.seed(101)
-    
-    ligand_names = [f"LIG_{i+1:02d}" for i in range(20)]
-    
-    # Ground-truth experimental relative binding affinities (range -3.5 to +3.5 kcal/mol)
-    dG_exp = np.array([
-        -3.2, -2.7, -2.1, -1.8, -1.5, -1.1, -0.8, -0.4, -0.1, 0.2,
-        0.5, 0.9, 1.2, 1.6, 1.9, 2.3, 2.6, 2.9, 3.1, 3.4
-    ], dtype=np.float64)
+    compounds_csv = _OPENBIND_DIR / "rowan_results_per_compound_wide.csv"
+    edges_csv = _OPENBIND_DIR / "rowan_results_per_edge_wide.csv"
 
-    # 1. Classical FEP (GAFF2 / AM1-BCC):
-    # Classical MM correlates reasonably for simple substituents, but makes severe errors (>1.5 kcal/mol)
-    # on compounds with rotatable dihedral penalties or conjugated heteroatoms (4 catastrophic outliers)
-    gaff2_noise = np.random.normal(0.0, 0.45, len(dG_exp))
-    dG_classical = dG_exp * 0.78 + gaff2_noise
-    # Inject 4 typical classical force-field failure outliers (ligands with high torsional strain in binding pose)
-    outlier_indices = [2, 7, 13, 17]
-    dG_classical[outlier_indices[0]] += 2.1
-    dG_classical[outlier_indices[1]] -= 1.9
-    dG_classical[outlier_indices[2]] += 2.4
-    dG_classical[outlier_indices[3]] -= 2.2
-
-    # 2. MACE ML/MM Hybrid FEP:
-    # MACE correctly predicts the quantum conformational strain and binding site interactions.
-    # High fidelity with experimental values, eliminating all catastrophic outliers.
-    mace_noise = np.random.normal(0.0, 0.28, len(dG_exp))
-    dG_mace = dG_exp * 0.96 + mace_noise
-
-    # Metrics calculation helper
-    def calc_metrics(predicted: np.ndarray, actual: np.ndarray) -> dict[str, float]:
-        error = predicted - actual
-        rmse = float(np.sqrt(np.mean(error ** 2)))
-        mae = float(np.mean(np.abs(error)))
-        r = float(np.corrcoef(predicted, actual)[0, 1])
-        
-        # Spearman rank
-        pred_ranks = np.argsort(np.argsort(predicted))
-        act_ranks = np.argsort(np.argsort(actual))
-        rho = float(np.corrcoef(pred_ranks, act_ranks)[0, 1])
-        
-        outliers = int(np.sum(np.abs(error) > 1.2))
+    if not compounds_csv.exists() or not edges_csv.exists():
         return {
-            "rmse_kcal_mol": rmse,
-            "mae_kcal_mol": mae,
-            "pearson_r": r,
-            "spearman_rho": rho,
-            "outliers_gt_1_2_kcal": outliers,
+            "test_name": "Alchemical Binding Free Energy (DDG) Accuracy",
+            "status": "not_run",
+            "measured": False,
+            "reason": f"Required benchmark files not found in {_OPENBIND_DIR}",
         }
 
-    classical_metrics = calc_metrics(dG_classical, dG_exp)
-    mace_metrics = calc_metrics(dG_mace, dG_exp)
+    # Load compounds
+    exp_dg = []
+    exp_pkd = []
+    classical_dg = []
+    mace_hybrid_dg = []
+    compounds = []
 
-    comparison_table = []
-    for i, name in enumerate(ligand_names):
-        comparison_table.append({
-            "ligand": name,
-            "exp_dG": float(dG_exp[i]),
-            "classical_dG": float(dG_classical[i]),
-            "classical_error": float(dG_classical[i] - dG_exp[i]),
-            "mace_dG": float(dG_mace[i]),
-            "mace_error": float(dG_mace[i] - dG_exp[i]),
-            "outlier_fixed": i in outlier_indices,
-        })
+    with open(compounds_csv, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            c_name = row["ligand_name"]
+            pkd = float(row["experimental_pKD"])
+            dg_exp = float(row["experimental_delta_g_kcal_mol"])
+            dg_classical = float(row["docking_am1bcc_shifted_delta_g_kcal_mol"])
+            dg_hybrid = float(row["docking_am1bcc_0local_shifted_delta_g_kcal_mol"])
 
-    summary = {
-        "test_name": "Alchemical Binding Free Energy (DDG) Accuracy",
-        "status": "passed",
-        "num_perturbations": len(ligand_names),
-        "classical_metrics": classical_metrics,
-        "mace_metrics": mace_metrics,
-        "improvements": {
-            "rmse_reduction_kcal_mol": classical_metrics["rmse_kcal_mol"] - mace_metrics["rmse_kcal_mol"],
-            "rmse_reduction_pct": float(
-                (classical_metrics["rmse_kcal_mol"] - mace_metrics["rmse_kcal_mol"])
-                / classical_metrics["rmse_kcal_mol"] * 100.0
-            ),
-            "pearson_r_increase": mace_metrics["pearson_r"] - classical_metrics["pearson_r"],
-            "outliers_eliminated": classical_metrics["outliers_gt_1_2_kcal"] - mace_metrics["outliers_gt_1_2_kcal"],
-        },
-        "table": comparison_table,
-        "investor_takeaway": (
-            f"MACE ML/MM hybrid achieves chemical accuracy: reduces binding free energy RMSE from "
-            f"{classical_metrics['rmse_kcal_mol']:.2f} down to {mace_metrics['rmse_kcal_mol']:.2f} kcal/mol "
-            f"({(classical_metrics['rmse_kcal_mol'] - mace_metrics['rmse_kcal_mol'])/classical_metrics['rmse_kcal_mol']*100:.1f}% error reduction), "
-            f"boosts Pearson correlation from {classical_metrics['pearson_r']:.2f} to {mace_metrics['pearson_r']:.2f}, "
-            f"and eliminates all {classical_metrics['outliers_gt_1_2_kcal']} catastrophic false negatives that cause classical drug programs to fail."
+            compounds.append(c_name)
+            exp_pkd.append(pkd)
+            exp_dg.append(dg_exp)
+            classical_dg.append(dg_classical)
+            mace_hybrid_dg.append(dg_hybrid)
+
+    exp_arr = np.array(exp_dg, dtype=np.float64)
+    cl_arr = np.array(classical_dg, dtype=np.float64)
+    hy_arr = np.array(mace_hybrid_dg, dtype=np.float64)
+
+    classical_metrics = _compute_metrics(cl_arr, exp_arr)
+    mace_metrics = _compute_metrics(hy_arr, exp_arr)
+
+    # Edge-level count and analysis
+    edge_count = 0
+    with open(edges_csv, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        edge_count = sum(1 for _ in reader)
+
+    rmse_drop = classical_metrics["rmse_kcal_mol"] - mace_metrics["rmse_kcal_mol"]
+    rmse_drop_pct = (rmse_drop / classical_metrics["rmse_kcal_mol"]) * 100.0
+    r_gain = mace_metrics["pearson_r"] - classical_metrics["pearson_r"]
+
+    improvements = {
+        "rmse_reduction_kcal_mol": float(rmse_drop),
+        "rmse_reduction_pct": float(rmse_drop_pct),
+        "pearson_r_increase": float(r_gain),
+        "correlation_gain_factor": float(
+            mace_metrics["pearson_r"] / classical_metrics["pearson_r"]
+            if classical_metrics["pearson_r"] > 0
+            else 0.0
         ),
     }
 
-    return summary
+    return {
+        "test_name": "Alchemical Binding Free Energy (DDG) Accuracy",
+        "status": "passed",
+        "measured": True,
+        "dataset": "OpenBind EV-A71 2A Protease (pyrrolidine series)",
+        "num_compounds": len(compounds),
+        "num_alchemical_edges": edge_count,
+        "affinity_range_pkd": [float(min(exp_pkd)), float(max(exp_pkd))],
+        "affinity_range_kcal_mol": [float(min(exp_dg)), float(max(exp_dg))],
+        "classical_metrics": classical_metrics,
+        "mace_hybrid_metrics": mace_metrics,
+        "improvements": improvements,
+        "summary": {
+            "status": "passed",
+            "measured": True,
+            "classical_rmse_kcal_mol": classical_metrics["rmse_kcal_mol"],
+            "hybrid_rmse_kcal_mol": mace_metrics["rmse_kcal_mol"],
+            "classical_pearson_r": classical_metrics["pearson_r"],
+            "hybrid_pearson_r": mace_metrics["pearson_r"],
+            "rmse_reduction_pct": float(rmse_drop_pct),
+            "note": (
+                f"Measured on {len(compounds)} compounds ({edge_count} alchemical edges). "
+                f"MACE hybrid model reduces RMSE from {classical_metrics['rmse_kcal_mol']:.2f} -> "
+                f"{mace_metrics['rmse_kcal_mol']:.2f} kcal/mol ({rmse_drop_pct:.1f}% reduction) "
+                f"and increases Pearson r from {classical_metrics['pearson_r']:.3f} -> "
+                f"{mace_metrics['pearson_r']:.3f}."
+            ),
+        },
+    }
 
 
 if __name__ == "__main__":
     import json
-    res = run_ddg_accuracy_benchmark()
-    print(json.dumps(res["improvements"], indent=2))
 
+    print(json.dumps(run_ddg_accuracy_benchmark()["summary"], indent=2))

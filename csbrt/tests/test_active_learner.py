@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import sys
 
 import numpy as np
 import pytest
@@ -433,7 +434,7 @@ def test_fine_tune_dry_run_emits_the_real_command(tmp_path):
 
 
 def test_fine_tune_reports_a_failed_trainer(tmp_path):
-    tuner = MACEFineTuner(device="cpu", executable="/bin/false")
+    tuner = MACEFineTuner(device="cpu", executable=sys.executable)
     result = tuner.fine_tune(labelled_frames(), tmp_path / "gen1.model")
     assert result["status"] == "failed"
     assert result["returncode"] != 0

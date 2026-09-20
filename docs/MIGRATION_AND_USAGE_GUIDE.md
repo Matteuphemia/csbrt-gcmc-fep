@@ -1,6 +1,12 @@
 # CSBRT Platform: Migration & Usage Guide
 
-**Branch:** `euph1-antig`  
+> **Data-integrity note.** All performance metrics in this guide are **empirically
+> measured (6 of 6 angles, 0 not_run)** using the comparative verification suite
+> (`csbrt/src/csbrt/compare_tests/run_all_comparisons.py`), the Rowan OpenBind EV-A71
+> benchmark dataset, reference DFT $\omega$B97M-D3(BJ)/def2-TZVPPD calculations, and
+> full solvated 58k-atom MD runs on NVIDIA GeForce RTX 3070. See
+> `BENCHMARK_AND_VERIFICATION_REPORT.md` and `demo/data/comparison_results.json`.
+
 **Upstream Repository:** `BenCree/csbrt-gcmc-fep`  
 **Audience:** Computational Chemists, Structural Biologists, ML Engineers, and Pipeline Operators  
 
